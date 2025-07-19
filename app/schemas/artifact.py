@@ -25,10 +25,22 @@ class Artifact(ArtifactBase):
     run_id: int
     path: str
     size: int
+    artifact_metadata: Dict[str, Any] = {}
     created_at: datetime
     
     class Config:
         from_attributes = True
+    
+    @classmethod
+    def from_orm(cls, obj):
+        """Custom from_orm to handle JSON string conversion."""
+        if hasattr(obj, 'artifact_metadata') and isinstance(obj.artifact_metadata, str):
+            import json
+            try:
+                obj.artifact_metadata = json.loads(obj.artifact_metadata)
+            except (json.JSONDecodeError, TypeError):
+                obj.artifact_metadata = {}
+        return super().from_orm(obj)
 
 
 class LogBase(BaseModel):

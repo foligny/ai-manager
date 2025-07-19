@@ -117,11 +117,12 @@ def train_with_ai_manager():
                 patience_counter = 0
                 
                 # Save best model
-                torch.save(model.state_dict(), 'best_model.pth')
+                best_model_path = os.path.join(os.getcwd(), 'best_model.pth')
+                torch.save(model.state_dict(), best_model_path)
                 
                 # Log best model as artifact
                 artifact = ArtifactInfo(
-                    file_path="best_model.pth",
+                    file_path=best_model_path,
                     name=f"best_model_epoch_{epoch+1}",
                     artifact_type=ArtifactType.MODEL,
                     metadata={
@@ -152,11 +153,12 @@ def train_with_ai_manager():
         })
         
         # Save final model
-        trainer.save_model('final_model.pth')
+        final_model_path = os.path.join(os.getcwd(), 'final_model.pth')
+        trainer.save_model(final_model_path)
         
         # Log final model as artifact
         final_artifact = ArtifactInfo(
-            file_path="final_model.pth",
+            file_path=final_model_path,
             name="final_model",
             artifact_type=ArtifactType.MODEL,
             metadata={
@@ -171,8 +173,9 @@ def train_with_ai_manager():
         trainer.plot_training_history()
         
         # Log training history plot as artifact
+        history_path = os.path.join(os.getcwd(), 'training_history.png')
         history_artifact = ArtifactInfo(
-            file_path="training_history.png",
+            file_path=history_path,
             name="training_history_plot",
             artifact_type=ArtifactType.OTHER,
             metadata={
@@ -183,8 +186,9 @@ def train_with_ai_manager():
         run.log_artifact(history_artifact)
         
         # Log data info as artifact
+        data_path = os.path.join(os.getcwd(), 'data_info.json')
         data_artifact = ArtifactInfo(
-            file_path="data_info.json",
+            file_path=data_path,
             name="dataset_info",
             artifact_type=ArtifactType.DATA,
             metadata={
@@ -272,11 +276,12 @@ def reset_and_retrain():
             run.log({"final_test_accuracy": test_accuracy})
             
             # Save model
-            torch.save(model.state_dict(), f'model_run_{i+1}.pth')
+            model_path = os.path.join(os.getcwd(), f'model_run_{i+1}.pth')
+            torch.save(model.state_dict(), model_path)
             
             # Log model artifact
             artifact = ArtifactInfo(
-                file_path=f'model_run_{i+1}.pth',
+                file_path=model_path,
                 name=f"model_run_{i+1}_{config['description']}",
                 artifact_type=ArtifactType.MODEL,
                 metadata={

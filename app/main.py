@@ -13,7 +13,7 @@ import os
 
 from app.config import settings
 from app.database import create_tables
-from app.api import auth, projects, runs, metrics
+from app.api import auth, projects, runs, metrics, artifacts
 
 # Create FastAPI app
 app = FastAPI(
@@ -38,6 +38,7 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(runs.router)
 app.include_router(metrics.router)
+app.include_router(artifacts.router)
 
 # WebSocket connection manager
 class ConnectionManager:
