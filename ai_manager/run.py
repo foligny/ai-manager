@@ -31,10 +31,24 @@ class Run(MetricInterface):
         if step is None:
             step = int(time.time())
         
+        # Convert all values to float for API compatibility
+        float_metrics = {}
+        for key, value in metrics.items():
+            if isinstance(value, (int, float)):
+                float_metrics[key] = float(value)
+            elif isinstance(value, bool):
+                float_metrics[key] = 1.0 if value else 0.0
+            elif isinstance(value, str):
+                # For string values, we'll skip them for now as the API expects floats
+                continue
+            else:
+                # Skip unsupported types
+                continue
+        
         response = self.session.post(
             f"{self.api_url}/metrics/{self.run_id}/batch",
             json={
-                "metrics": metrics,
+                "metrics": float_metrics,
                 "step": step
             }
         )
@@ -93,6 +107,6 @@ class Run(MetricInterface):
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit - mark run as completed or failed."""
         if exc_type is None:
-            self.finish("completed")
+            self._finish_run(RunStatus.COMPLETED)
         else:
-            self.finish("failed") 
+            self._finish_run(RunStatus.FAILED) 
