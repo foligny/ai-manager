@@ -79,6 +79,30 @@ async def startup_event():
     
     # Create storage directory if it doesn't exist
     os.makedirs(settings.storage_path, exist_ok=True)
+    
+    # Create default user if it doesn't exist
+    from app.database import SessionLocal, User
+    from app.core.auth import get_password_hash
+    
+    db = SessionLocal()
+    try:
+        # Check if default user exists
+        default_user = db.query(User).filter(User.username == "admin").first()
+        if not default_user:
+            # Create default user
+            default_user = User(
+                username="admin",
+                email="admin@example.com",
+                hashed_password=get_password_hash("admin123"),
+                is_active=True
+            )
+            db.add(default_user)
+            db.commit()
+            print("Default user created: admin/admin123")
+    except Exception as e:
+        print(f"Error creating default user: {e}")
+    finally:
+        db.close()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -119,12 +143,85 @@ async def root():
             <div class="container">
                 <a class="navbar-brand" href="#">AI Manager</a>
                 <div class="navbar-nav ms-auto">
+                    <span id="user-info" class="nav-link" style="display: none;">
+                        Welcome, <span id="username"></span> | 
+                        <a href="#" onclick="logout()" class="text-white">Logout</a>
+                    </span>
                     <a class="nav-link" href="/docs">API Docs</a>
                 </div>
             </div>
         </nav>
 
-        <div class="container mt-4">
+        <!-- Login Form -->
+        <div id="login-container" class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Login to AI Manager</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="login-form">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="username-input" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="password-input" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Login</button>
+                            </form>
+                            <hr>
+                            <p class="text-center mb-0">
+                                <small class="text-muted">Don't have an account? 
+                                    <a href="#" onclick="showRegister()">Register here</a>
+                                </small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-container" class="container mt-5" style="display: none;">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Register for AI Manager</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="register-form">
+                                <div class="mb-3">
+                                    <label for="reg-email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="reg-email" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="reg-username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="reg-username" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="reg-password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="reg-password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Register</button>
+                            </form>
+                            <hr>
+                            <p class="text-center mb-0">
+                                <small class="text-muted">Already have an account? 
+                                    <a href="#" onclick="showLogin()">Login here</a>
+                                </small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard-container" class="container mt-4" style="display: none;">
             <div class="row">
                 <div class="col-md-3">
                     <div class="card">
@@ -179,15 +276,146 @@ async def root():
             let currentProject = null;
             let currentRun = null;
             let websocket = null;
+            let authToken = null;
+            let currentUser = null;
 
-            // Load projects on page load
+            // Check if user is already logged in
             document.addEventListener('DOMContentLoaded', function() {
-                loadProjects();
+                const savedToken = localStorage.getItem('authToken');
+                const savedUser = localStorage.getItem('currentUser');
+                
+                if (savedToken && savedUser) {
+                    authToken = savedToken;
+                    currentUser = JSON.parse(savedUser);
+                    showDashboard();
+                    loadProjects();
+                } else {
+                    showLogin();
+                }
+            });
+
+            function showLogin() {
+                document.getElementById('login-container').style.display = 'block';
+                document.getElementById('register-container').style.display = 'none';
+                document.getElementById('dashboard-container').style.display = 'none';
+                document.getElementById('user-info').style.display = 'none';
+            }
+
+            function showRegister() {
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('register-container').style.display = 'block';
+                document.getElementById('dashboard-container').style.display = 'none';
+                document.getElementById('user-info').style.display = 'none';
+            }
+
+            function showDashboard() {
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('register-container').style.display = 'none';
+                document.getElementById('dashboard-container').style.display = 'block';
+                document.getElementById('user-info').style.display = 'block';
+                document.getElementById('username').textContent = currentUser.username;
+            }
+
+            function logout() {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('currentUser');
+                authToken = null;
+                currentUser = null;
+                showLogin();
+            }
+
+            // Login form handler
+            document.getElementById('login-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('username-input').value;
+                const password = document.getElementById('password-input').value;
+                
+                try {
+                    const response = await fetch('/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        authToken = data.access_token;
+                        
+                        // Get user info
+                        const userResponse = await fetch('/auth/me', {
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`
+                            }
+                        });
+                        
+                        if (userResponse.ok) {
+                            currentUser = await userResponse.json();
+                            localStorage.setItem('authToken', authToken);
+                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                            showDashboard();
+                            loadProjects();
+                        }
+                    } else {
+                        alert('Login failed. Please check your credentials.');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    alert('Login failed. Please try again.');
+                }
+            });
+
+            // Register form handler
+            document.getElementById('register-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const email = document.getElementById('reg-email').value;
+                const username = document.getElementById('reg-username').value;
+                const password = document.getElementById('reg-password').value;
+                
+                try {
+                    const response = await fetch('/auth/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: email,
+                            username: username,
+                            password: password
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        alert('Registration successful! Please login.');
+                        showLogin();
+                        document.getElementById('login-form').reset();
+                    } else {
+                        const error = await response.json();
+                        alert(`Registration failed: ${error.detail}`);
+                    }
+                } catch (error) {
+                    console.error('Registration error:', error);
+                    alert('Registration failed. Please try again.');
+                }
             });
 
             async function loadProjects() {
                 try {
-                    const response = await fetch('/projects/');
+                    const response = await fetch('/projects/', {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+                    
+                    if (response.status === 401) {
+                        // Token expired or invalid
+                        logout();
+                        return;
+                    }
+                    
                     const projects = await response.json();
                     displayProjects(projects);
                 } catch (error) {
@@ -219,7 +447,17 @@ async def root():
 
             async function loadRuns(projectId) {
                 try {
-                    const response = await fetch(`/runs/?project_id=${projectId}`);
+                    const response = await fetch(`/runs/?project_id=${projectId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+                    
+                    if (response.status === 401) {
+                        logout();
+                        return;
+                    }
+                    
                     const runs = await response.json();
                     displayRuns(runs);
                 } catch (error) {
@@ -274,7 +512,17 @@ async def root():
 
             async function loadMetrics(runId) {
                 try {
-                    const response = await fetch(`/metrics/${runId}/summary`);
+                    const response = await fetch(`/metrics/${runId}/summary`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+                    
+                    if (response.status === 401) {
+                        logout();
+                        return;
+                    }
+                    
                     const metrics = await response.json();
                     displayMetrics(metrics);
                 } catch (error) {
@@ -347,6 +595,7 @@ async def root():
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
                         },
                         body: JSON.stringify({
                             name: name,
