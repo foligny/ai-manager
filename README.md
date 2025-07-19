@@ -187,6 +187,232 @@ alembic revision --autogenerate -m "Description"
 alembic upgrade head
 ```
 
+## Training Performance Monitoring
+
+### 🎯 Viewing Training Performance
+
+#### **1. Real-time Training Dashboard**
+
+**Start the AI Manager server:**
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Start the server
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Access the web dashboard:**
+- **URL:** http://localhost:8000
+- **Login:** Username: `admin`, Password: `admin123`
+
+#### **2. Viewing Training Curves**
+
+**In the web dashboard:**
+1. **Navigate to Projects** → Select your project
+2. **Click on a Run** → View detailed metrics
+3. **Real-time Charts** → See training curves updating live
+4. **Metric Comparison** → Compare multiple runs side-by-side
+
+**Key metrics to monitor:**
+- **Training Loss** → Should decrease over time
+- **Validation Loss** → Should decrease (watch for overfitting)
+- **Training Accuracy** → Should increase
+- **Validation Accuracy** → Should increase (indicates generalization)
+
+#### **3. API-based Performance Analysis**
+
+**Using the performance analysis script:**
+```bash
+# Run the analysis tool
+python performance_analysis.py
+
+# Options available:
+# 1. Show available runs
+# 2. Analyze specific run
+# 3. Compare multiple runs
+# 4. Plot training curves
+```
+
+**Quick performance demo:**
+```bash
+python quick_performance_demo.py
+```
+
+### 🔄 Resetting and Managing Training
+
+#### **1. Reset Training Runs**
+
+**Delete specific runs:**
+```bash
+# Using the cleanup script
+python targeted_cleanup.py
+
+# Options:
+# - Delete all test/debug runs
+# - Delete specific projects
+# - Keep productive runs
+```
+
+**Manual deletion via API:**
+```bash
+# Get authentication token
+curl -X POST "http://localhost:8000/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=admin123"
+
+# Delete a run (replace {run_id} with actual ID)
+curl -X DELETE "http://localhost:8000/runs/{run_id}" \
+  -H "Authorization: Bearer {your_token}"
+
+# Delete a project (deletes all associated runs)
+curl -X DELETE "http://localhost:8000/projects/{project_id}" \
+  -H "Authorization: Bearer {your_token}"
+```
+
+#### **2. Start Fresh Training**
+
+**Clear all data and start over:**
+```bash
+# Stop the server (Ctrl+C)
+# Delete the database
+rm ai_manager.db
+
+# Restart the server (creates fresh database)
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Reset specific project:**
+1. Go to web dashboard
+2. Navigate to Projects
+3. Select project to reset
+4. Delete all runs in the project
+5. Start new training runs
+
+### 📊 Understanding Training Curves
+
+#### **1. Healthy Training Patterns**
+
+**Good training curves show:**
+- **Loss decreasing** → Model is learning
+- **Accuracy increasing** → Performance improving
+- **Validation metrics following training** → Good generalization
+- **Smooth curves** → Stable learning
+
+**Warning signs:**
+- **Validation loss increasing** → Overfitting
+- **Training loss not decreasing** → Learning rate too low
+- **Gap between train/validation** → Overfitting
+- **Oscillating curves** → Learning rate too high
+
+#### **2. Comparing Different Runs**
+
+**In the web dashboard:**
+1. **Select multiple runs** → Compare configurations
+2. **Overlay charts** → See performance differences
+3. **Parameter comparison** → Understand what works best
+4. **Export results** → Save for external analysis
+
+**Key comparisons:**
+- **Learning rate effects** → Higher vs lower rates
+- **Batch size impact** → Memory vs convergence speed
+- **Architecture changes** → Model performance differences
+- **Data augmentation** → Generalization improvements
+
+### 🚀 Best Practices
+
+#### **1. Training Setup**
+```python
+# Example training integration
+from ai_manager import AIManager
+
+# Initialize with project
+manager = AIManager(project_name="image_classifier")
+
+# Start training run
+with manager.run(name="experiment_1") as run:
+    # Log hyperparameters
+    run.config.update({
+        "learning_rate": 0.001,
+        "batch_size": 32,
+        "epochs": 100
+    })
+    
+    # Training loop
+    for epoch in range(100):
+        # Your training code here
+        train_loss = train_epoch()
+        val_loss = validate()
+        
+        # Log metrics
+        run.log({
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            "train_accuracy": train_acc,
+            "val_accuracy": val_acc
+        })
+```
+
+#### **2. Monitoring Checklist**
+- [ ] **Check training curves** every few epochs
+- [ ] **Monitor validation metrics** for overfitting
+- [ ] **Compare with baseline** runs
+- [ ] **Save best models** as artifacts
+- [ ] **Document hyperparameters** that work well
+- [ ] **Export results** for reporting
+
+#### **3. Troubleshooting Common Issues**
+
+**Training not improving:**
+- Increase learning rate
+- Check data quality
+- Verify model architecture
+- Monitor gradient flow
+
+**Overfitting:**
+- Add regularization
+- Reduce model complexity
+- Use data augmentation
+- Early stopping
+
+**Unstable training:**
+- Reduce learning rate
+- Increase batch size
+- Check data normalization
+- Monitor gradient clipping
+
+### 📈 Advanced Features
+
+#### **1. Custom Metrics**
+```python
+# Log custom metrics
+run.log({
+    "custom_metric": value,
+    "f1_score": f1_score,
+    "precision": precision,
+    "recall": recall
+})
+```
+
+#### **2. Model Artifacts**
+```python
+# Save trained model
+run.save_artifact("model.pth", model_state_dict)
+
+# Save training plots
+run.save_artifact("training_curves.png", plot_data)
+```
+
+#### **3. Experiment Tracking**
+```python
+# Tag runs for organization
+run.tags = ["baseline", "high_lr", "experiment"]
+
+# Add descriptions
+run.description = "Testing higher learning rate for faster convergence"
+```
+
 ## Contributing
 
 1. Fork the repository
