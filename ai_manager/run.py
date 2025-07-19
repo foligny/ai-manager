@@ -5,11 +5,12 @@ Run class for logging metrics and artifacts during training.
 import os
 import json
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import requests
+from .types import MetricInterface, MetricDict, ConfigDict, ArtifactInfo, RunStatus, MetricValue
 
 
-class Run:
+class Run(MetricInterface):
     """Represents a training run for logging metrics and artifacts."""
     
     def __init__(self, run_id: int, api_url: str, session: requests.Session):
@@ -23,15 +24,10 @@ class Run:
         self.run_id = run_id
         self.api_url = api_url
         self.session = session
-        self.config = {}
+        self.config: Dict[str, Any] = {}
     
-    def log(self, metrics: Dict[str, float], step: Optional[int] = None):
-        """Log metrics for the current run.
-        
-        Args:
-            metrics: Dictionary of metric names and values
-            step: Training step (optional)
-        """
+    def _log_metrics(self, metrics: Dict[str, Union[float, int, bool, str]], step: Optional[int]) -> None:
+        """Log metrics for the current run (implements MetricInterface)."""
         if step is None:
             step = int(time.time())
         
@@ -44,22 +40,8 @@ class Run:
         )
         response.raise_for_status()
     
-    def log_metric(self, name: str, value: float, step: Optional[int] = None):
-        """Log a single metric.
-        
-        Args:
-            name: Name of the metric
-            value: Value of the metric
-            step: Training step (optional)
-        """
-        self.log({name: value}, step)
-    
-    def log_config(self, config: Dict[str, Any]):
-        """Log configuration for the run.
-        
-        Args:
-            config: Configuration dictionary
-        """
+    def _log_config(self, config: Dict[str, Any]) -> None:
+        """Log configuration for the run (implements MetricInterface)."""
         self.config.update(config)
         
         response = self.session.put(
@@ -68,26 +50,19 @@ class Run:
         )
         response.raise_for_status()
     
-    def log_artifact(self, file_path: str, name: Optional[str] = None, artifact_type: str = "other"):
-        """Log an artifact (file) for the run.
+    def _log_artifact(self, artifact: ArtifactInfo) -> None:
+        """Log an artifact (implements MetricInterface)."""
+        if not os.path.exists(artifact.file_path):
+            raise FileNotFoundError(f"File not found: {artifact.file_path}")
         
-        Args:
-            file_path: Path to the file to upload
-            name: Name for the artifact (defaults to filename)
-            artifact_type: Type of artifact (model, data, config, other)
-        """
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: {file_path}")
+        name = artifact.name or os.path.basename(artifact.file_path)
         
-        if name is None:
-            name = os.path.basename(file_path)
-        
-        with open(file_path, 'rb') as f:
+        with open(artifact.file_path, 'rb') as f:
             files = {'file': (name, f, 'application/octet-stream')}
             data = {
                 'name': name,
-                'type': artifact_type,
-                'metadata': json.dumps({})
+                'type': artifact.artifact_type.value,
+                'metadata': json.dumps(artifact.metadata)
             }
             
             response = self.session.post(
@@ -97,20 +72,19 @@ class Run:
             )
             response.raise_for_status()
     
-    def finish(self, status: str = "completed"):
-        """Mark the run as finished.
-        
-        Args:
-            status: Final status of the run (completed, failed, stopped)
-        """
+    def _finish_run(self, status: RunStatus) -> None:
+        """Finish the run (implements MetricInterface)."""
         response = self.session.put(
             f"{self.api_url}/runs/{self.run_id}",
             json={
-                "status": status,
+                "status": status.value,
                 "ended_at": time.time()
             }
         )
         response.raise_for_status()
+    
+    # Note: Legacy methods removed to avoid conflicts with interface
+    # Use the interface methods directly for type safety
     
     def __enter__(self):
         """Context manager entry."""

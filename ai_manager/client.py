@@ -5,13 +5,14 @@ AI Manager client for easy integration with training scripts.
 import os
 import json
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 import requests
 from .run import Run
+from .types import AIManagerInterface, RunInfo, ConfigDict, MetricInterface
 
 
-class AIManager:
-    """Main client class for AI Manager."""
+class AIManager(AIManagerInterface):
+    """Main client class for AI Manager with type safety."""
     
     def __init__(
         self,
@@ -83,40 +84,17 @@ class AIManager:
         project = response.json()
         return project["id"]
     
-    def run(
-        self,
-        name: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-        tags: Optional[list] = None
-    ) -> Run:
-        """Start a new training run.
-        
-        Args:
-            name: Name of the run (auto-generated if not provided)
-            config: Configuration dictionary
-            tags: List of tags for the run
-            
-        Returns:
-            Run object for logging metrics and artifacts
-        """
+    def _create_run(self, run_info: RunInfo) -> MetricInterface:
+        """Create a new run (implements AIManagerInterface)."""
         project_id = self._get_or_create_project()
-        
-        if name is None:
-            name = f"run_{int(time.time())}"
-        
-        if config is None:
-            config = {}
-        
-        if tags is None:
-            tags = []
         
         response = self.session.post(
             f"{self.api_url}/runs/",
             params={"project_id": project_id},
             json={
-                "name": name,
-                "config": config,
-                "tags": tags
+                "name": run_info.name,
+                "config": run_info.config,
+                "tags": run_info.tags
             }
         )
         response.raise_for_status()

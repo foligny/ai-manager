@@ -245,8 +245,11 @@ async def root():
                 
                 <div class="col-md-9">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">Training Runs</h5>
+                            <button id="new-run-btn" class="btn btn-success btn-sm" onclick="createRun()" style="display: none;">
+                                New Run
+                            </button>
                         </div>
                         <div class="card-body">
                             <div id="runs-list">
@@ -432,7 +435,7 @@ async def root():
 
                 container.innerHTML = projects.map(project => `
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <a href="#" onclick="selectProject(${project.id})" class="text-decoration-none">
+                        <a href="#" onclick="selectProject(${project.id}, '${project.name}')" class="text-decoration-none project-link" data-project-id="${project.id}">
                             ${project.name}
                         </a>
                         <span class="badge bg-secondary">${project.runs?.length || 0}</span>
@@ -440,8 +443,19 @@ async def root():
                 `).join('');
             }
 
-            async function selectProject(projectId) {
+            async function selectProject(projectId, projectName) {
                 currentProject = projectId;
+                
+                // Update UI to show selected project
+                document.querySelectorAll('.project-link').forEach(link => {
+                    link.classList.remove('fw-bold', 'text-primary');
+                });
+                document.querySelector(`[data-project-id="${projectId}"]`).classList.add('fw-bold', 'text-primary');
+                
+                // Update runs section header and show new run button
+                document.querySelector('.card-header h5').textContent = `Training Runs - ${projectName}`;
+                document.getElementById('new-run-btn').style.display = 'block';
+                
                 await loadRuns(projectId);
             }
 
@@ -468,7 +482,7 @@ async def root():
             function displayRuns(runs) {
                 const container = document.getElementById('runs-list');
                 if (runs.length === 0) {
-                    container.innerHTML = '<p class="text-muted">No runs found</p>';
+                    container.innerHTML = '<p class="text-muted">No runs found for this project. Click "New Run" to start training.</p>';
                     return;
                 }
 
@@ -480,7 +494,13 @@ async def root():
                                     <h6 class="card-title mb-1">${run.name}</h6>
                                     <small class="text-muted">
                                         Started: ${new Date(run.started_at).toLocaleString()}
+                                        ${run.ended_at ? `<br>Ended: ${new Date(run.ended_at).toLocaleString()}` : ''}
                                     </small>
+                                    ${run.tags && run.tags.length > 0 ? `
+                                        <div class="mt-1">
+                                            ${run.tags.map(tag => `<span class="badge bg-light text-dark me-1">${tag}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
                                 </div>
                                 <div class="text-end">
                                     <span class="badge bg-${getStatusColor(run.status)}">${run.status}</span>
@@ -611,6 +631,44 @@ async def root():
                     }
                 } catch (error) {
                     console.error('Error creating project:', error);
+                }
+            }
+
+            async function createRun() {
+                if (!currentProject) {
+                    alert('Please select a project first');
+                    return;
+                }
+
+                const name = prompt('Enter run name:');
+                if (!name) return;
+
+                const tags = prompt('Enter tags (comma-separated, optional):');
+                const tagList = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
+                try {
+                    const response = await fetch(`/runs/?project_id=${currentProject}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            config: {},
+                            tags: tagList
+                        })
+                    });
+
+                    if (response.ok) {
+                        await loadRuns(currentProject);
+                        alert('Run created successfully! You can now start logging metrics.');
+                    } else {
+                        alert('Error creating run');
+                    }
+                } catch (error) {
+                    console.error('Error creating run:', error);
+                    alert('Error creating run');
                 }
             }
         </script>
