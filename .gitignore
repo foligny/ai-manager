@@ -205,3 +205,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+# Generated data files
+sample_project/*.npy
+sample_project/*.png
+sample_project/*.pth
+sample_project/data_info.json
+sample_project/demo_model.pth
+sample_project/test.pth
+sample_project/training_history.png
+ai_manager.db
