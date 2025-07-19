@@ -108,7 +108,7 @@ class Artifact(Base):
     type = Column(String)  # model, data, config, other
     path = Column(String)  # File path in storage
     size = Column(Integer)  # File size in bytes
-    metadata = Column(JSON, default={})  # Additional metadata
+    artifact_metadata = Column(JSON, default={})  # Additional metadata
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
