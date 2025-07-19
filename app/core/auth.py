@@ -2,11 +2,15 @@
 Authentication utilities.
 """
 
+import warnings
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.config import settings
+
+# Suppress bcrypt version warning
+warnings.filterwarnings("ignore", message=".*bcrypt.*")
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
