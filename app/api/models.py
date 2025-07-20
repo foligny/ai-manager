@@ -153,19 +153,48 @@ async def list_models(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List available models."""
+    """List available models with their capabilities."""
     
     models = []
+    
+    # Define model capabilities based on filename patterns
+    def get_model_capabilities(filename):
+        capabilities = []
+        
+        # Image models
+        if any(keyword in filename.lower() for keyword in ['image', 'vision', 'cnn', 'resnet', 'vgg', 'inception']):
+            capabilities.extend(['image', 'image_classification', 'object_detection'])
+        
+        # Text models
+        if any(keyword in filename.lower() for keyword in ['text', 'nlp', 'bert', 'gpt', 'transformer', 'sentiment']):
+            capabilities.extend(['text', 'text_classification', 'sentiment_analysis'])
+        
+        # Tabular data models
+        if any(keyword in filename.lower() for keyword in ['tabular', 'csv', 'regression', 'classification']):
+            capabilities.extend(['tabular', 'csv', 'regression', 'classification'])
+        
+        # Audio models
+        if any(keyword in filename.lower() for keyword in ['audio', 'speech', 'mel', 'spectrogram']):
+            capabilities.extend(['audio', 'speech_recognition', 'audio_classification'])
+        
+        # Generic models (if no specific capabilities detected)
+        if not capabilities:
+            capabilities = ['generic', 'csv', 'json', 'npy']
+        
+        return capabilities
     
     # Check root directory for demo models
     root_dir = os.getcwd()
     for file in os.listdir(root_dir):
         if file.endswith(('.pth', '.pt', '.pkl')):
+            capabilities = get_model_capabilities(file)
             models.append({
                 "name": file,
                 "path": os.path.join(root_dir, file),
                 "size": os.path.getsize(os.path.join(root_dir, file)),
-                "type": "demo"
+                "type": "demo",
+                "capabilities": capabilities,
+                "supported_formats": get_supported_formats(capabilities)
             })
     
     # Check sample_project directory
@@ -173,11 +202,35 @@ async def list_models(
     if os.path.exists(sample_dir):
         for file in os.listdir(sample_dir):
             if file.endswith(('.pth', '.pt', '.pkl')):
+                capabilities = get_model_capabilities(file)
                 models.append({
                     "name": file,
                     "path": os.path.join(sample_dir, file),
                     "size": os.path.getsize(os.path.join(sample_dir, file)),
-                    "type": "sample"
+                    "type": "sample",
+                    "capabilities": capabilities,
+                    "supported_formats": get_supported_formats(capabilities)
                 })
     
-    return {"models": models} 
+    return {"models": models}
+
+def get_supported_formats(capabilities):
+    """Get supported file formats based on model capabilities."""
+    formats = []
+    
+    if 'image' in capabilities or 'image_classification' in capabilities:
+        formats.extend(['jpg', 'jpeg', 'png', 'bmp', 'tiff'])
+    
+    if 'text' in capabilities or 'text_classification' in capabilities:
+        formats.extend(['txt', 'json', 'csv'])
+    
+    if 'tabular' in capabilities or 'csv' in capabilities:
+        formats.extend(['csv', 'json', 'xlsx'])
+    
+    if 'audio' in capabilities or 'speech_recognition' in capabilities:
+        formats.extend(['wav', 'mp3', 'flac', 'm4a'])
+    
+    if 'generic' in capabilities:
+        formats.extend(['csv', 'json', 'npy', 'txt'])
+    
+    return list(set(formats))  # Remove duplicates 

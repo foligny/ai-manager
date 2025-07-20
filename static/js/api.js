@@ -120,6 +120,30 @@ class APIClient {
         const response = await this.request(`/training/status/${runId}`);
         return response.ok ? await response.json() : null;
     }
+
+    // Models
+    async getModels() {
+        const response = await this.request('/models/list');
+        return response.ok ? await response.json() : { models: [] };
+    }
+
+    async uploadModel(formData) {
+        const response = await this.request('/models/upload', {
+            method: 'POST',
+            headers: {}, // Let browser set Content-Type for FormData
+            body: formData
+        });
+        return response.ok ? await response.json() : null;
+    }
+
+    async testModel(formData) {
+        const response = await this.request('/models/test', {
+            method: 'POST',
+            headers: {}, // Let browser set Content-Type for FormData
+            body: formData
+        });
+        return response.ok ? await response.json() : null;
+    }
 }
 
 // Global API client instance

@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Model Inference - AI Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid vh-100 bg-dark">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-brain text-primary"></i> AI Manager
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <a class="btn btn-outline-light btn-sm me-2" href="/">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </a>
+                <span class="navbar-text me-3">
+                    <i class="fas fa-user text-primary"></i> 
+                    <span id="current-user">Admin</span>
+                </span>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="row h-100">
+        <!-- Sidebar -->
+        <div class="col-md-3 bg-dark border-end">
+            <div class="p-3">
+                <h5 class="text-light mb-3">
+                    <i class="fas fa-robot"></i> Model Selection
+                </h5>
+                
+                <!-- Model List -->
+                <div id="models-list" class="mb-4">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin"></i> Loading models...
+                    </div>
+                </div>
+                
+                <!-- Model Upload -->
+                <div class="mb-4">
+                    <h6 class="text-light mb-2">Upload Model</h6>
+                    <form id="upload-form" enctype="multipart/form-data">
+                        <div class="mb-2">
+                            <input type="file" class="form-control form-control-sm" id="model-file" accept=".pth,.pt,.pkl" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-upload"></i> Upload
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9 bg-dark">
+            <div class="p-3">
+                <h4 class="text-light mb-4">
+                    <i class="fas fa-magic"></i> Model Inference
+                </h4>
+
+                <!-- Input Section -->
+                <div class="row mb-4">
+                    <!-- Image Input Section -->
+                    <div id="image-inference-section" class="col-md-6" style="display: none;">
+                        <div class="card bg-secondary text-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-image"></i> Image Input
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="image-form">
+                                    <div class="mb-3">
+                                        <label for="image-input" class="form-label">Upload Image</label>
+                                        <input type="file" class="form-control" id="image-input" accept="image/*" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="image-preview" class="form-label">Preview</label>
+                                        <div id="image-preview" class="border rounded p-2 text-center" style="min-height: 200px;">
+                                            <i class="fas fa-image fa-3x text-muted"></i>
+                                            <p class="text-muted mt-2">No image selected</p>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="fas fa-play"></i> Run Inference
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Input Section -->
+                    <div id="data-inference-section" class="col-md-6" style="display: none;">
+                        <div class="card bg-secondary text-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-file-csv"></i> Data Input
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="data-form">
+                                    <div class="mb-3">
+                                        <label for="data-input" class="form-label">Upload Data File</label>
+                                        <input type="file" class="form-control" id="data-input" accept=".csv,.json,.npy" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="data-preview" class="form-label">Data Preview</label>
+                                        <div id="data-preview" class="border rounded p-2" style="min-height: 200px; max-height: 200px; overflow-y: auto;">
+                                            <p class="text-muted">No data selected</p>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="fas fa-play"></i> Run Test
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio Input Section -->
+                    <div id="audio-inference-section" class="col-md-6" style="display: none;">
+                        <div class="card bg-secondary text-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-microphone"></i> Audio Input
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="audio-form">
+                                    <div class="mb-3">
+                                        <label for="audio-input" class="form-label">Upload Audio File</label>
+                                        <input type="file" class="form-control" id="audio-input" accept=".wav,.mp3,.flac,.m4a" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="audio-preview" class="form-label">Audio Preview</label>
+                                        <div id="audio-preview" class="border rounded p-2 text-center" style="min-height: 200px;">
+                                            <i class="fas fa-microphone fa-3x text-muted"></i>
+                                            <p class="text-muted mt-2">No audio selected</p>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="fas fa-play"></i> Run Inference
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- No Model Selected Message -->
+                    <div id="no-model-message" class="col-12 text-center text-muted">
+                        <i class="fas fa-robot fa-3x mb-3"></i>
+                        <h5>Select a Model</h5>
+                        <p>Choose a model from the left panel to see available inference options.</p>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card bg-secondary text-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-bar"></i> Inference Results
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="results-container">
+                                    <div class="text-center text-muted">
+                                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                                        <h5>No results yet</h5>
+                                        <p>Upload an image or data file to see inference results</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', path='/js/inference.js') }}"></script>
+{% endblock %} 

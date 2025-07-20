@@ -128,5 +128,11 @@ async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "timestamp": "2023-01-01T00:00:00"}
 
+# Model inference interface
+@fastapi_app.get("/inference")
+async def inference_page(request: Request):
+    """Model inference interface."""
+    return templates.TemplateResponse("inference.html", {"request": request})
+
 # Export the Socket.IO ASGI app (wraps FastAPI app)
 app = socket_app 
