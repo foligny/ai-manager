@@ -71,7 +71,7 @@ class DashboardManager {
         try {
             const metrics = await api.getMetrics(runId);
             if (metrics.length > 0) {
-                this.renderCharts(metrics, runId);
+                window.chartsManager.renderCharts(metrics, runId);
             }
         } catch (error) {
             console.error('Failed to load metrics:', error);

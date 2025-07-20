@@ -24,10 +24,11 @@ class ChartsManager {
     groupMetricsByType(metrics) {
         const grouped = {};
         metrics.forEach(metric => {
-            if (!grouped[metric.metric_name]) {
-                grouped[metric.metric_name] = [];
+            const metricName = metric.metric_name || metric.name;
+            if (!grouped[metricName]) {
+                grouped[metricName] = [];
             }
-            grouped[metric.metric_name].push(metric);
+            grouped[metricName].push(metric);
         });
         return grouped;
     }
@@ -108,8 +109,9 @@ class ChartsManager {
     }
 
     updateChart(data) {
-        const { run_id, metric_name, value, step } = data;
-        const chartId = `${metric_name}-${run_id}`;
+        const { run_id, metric_name, name, value, step } = data;
+        const metricName = metric_name || name;
+        const chartId = `${metricName}-${run_id}`;
         
         if (this.charts.has(chartId)) {
             const elementId = this.charts.get(chartId);
