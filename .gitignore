@@ -214,3 +214,55 @@ sample_project/demo_model.pth
 sample_project/test.pth
 sample_project/training_history.png
 ai_manager.db
+test_data/*.npy
+
+# SSL Certificates (development only)
+certs/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Model files and artifacts
+*.pth
+*.pt
+*.onnx
+*.h5
+*.hdf5
+*.pb
+*.tflite
+*.mlmodel
+
+# Training artifacts
+*.ckpt
+*.safetensors
+*.bin
+*.safetensors
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env.local
+.env.production
+.env.staging
