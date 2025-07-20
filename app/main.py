@@ -531,6 +531,10 @@ async def root():
                 document.getElementById('dashboard-container').style.display = 'block';
                 document.getElementById('user-info').style.display = 'block';
                 document.getElementById('username').textContent = currentUser.username;
+                
+                // Show loading state initially
+                document.getElementById('runs-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+                document.getElementById('charts-container').innerHTML = '<div class="loading"><div class="spinner"></div><div class="mt-3">Loading charts...</div></div>';
             }
 
             // Data Loading
@@ -549,9 +553,17 @@ async def root():
                             loadRuns();
                             updateProjectInfo();
                         }
+                    } else if (response.status === 401) {
+                        // Token expired or invalid, redirect to login
+                        localStorage.removeItem('token');
+                        showLogin();
+                        return;
                     }
                 } catch (error) {
                     console.error('Error loading projects:', error);
+                    // Network error, redirect to login
+                    localStorage.removeItem('token');
+                    showLogin();
                 }
             }
 
@@ -570,9 +582,17 @@ async def root():
                         updateRunsList();
                         updateMetricsOverview();
                         loadCharts();
+                    } else if (response.status === 401) {
+                        // Token expired or invalid, redirect to login
+                        localStorage.removeItem('token');
+                        showLogin();
+                        return;
                     }
                 } catch (error) {
                     console.error('Error loading runs:', error);
+                    // Network error, redirect to login
+                    localStorage.removeItem('token');
+                    showLogin();
                 }
             }
 
@@ -655,9 +675,20 @@ async def root():
                     if (response.ok) {
                         const metrics = await response.json();
                         createCharts(metrics, runId);
+                    } else if (response.status === 401) {
+                        // Token expired or invalid, redirect to login
+                        localStorage.removeItem('token');
+                        showLogin();
+                        return;
+                    } else {
+                        // Show error message for other status codes
+                        console.error('Error loading metrics:', response.status);
                     }
                 } catch (error) {
                     console.error('Error loading metrics:', error);
+                    // Network error, redirect to login
+                    localStorage.removeItem('token');
+                    showLogin();
                 }
             }
 
@@ -852,7 +883,32 @@ async def root():
             if (token) {
                 currentUser = { username: 'admin' }; // Default for demo
                 showDashboard();
-                loadProjects();
+                // Validate token by trying to load projects
+                validateTokenAndLoadData();
+            } else {
+                showLogin();
+            }
+            
+            async function validateTokenAndLoadData() {
+                try {
+                    const response = await fetch('/projects/', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        loadProjects();
+                    } else if (response.status === 401) {
+                        // Token is invalid, clear it and show login
+                        localStorage.removeItem('token');
+                        showLogin();
+                    }
+                } catch (error) {
+                    console.error('Error validating token:', error);
+                    localStorage.removeItem('token');
+                    showLogin();
+                }
             }
         </script>
     </body>
