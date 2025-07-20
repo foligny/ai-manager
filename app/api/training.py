@@ -77,6 +77,15 @@ async def run_training(run_id: int, project_id: int):
             
             db.commit()
             
+            # Emit Socket.IO event for real-time updates
+            from app.main import sio
+            await sio.emit('training_update', {
+                'run_id': run_id,
+                'epoch': epoch,
+                'metrics': metrics,
+                'status': 'running'
+            }, room=f"run_{run_id}")
+            
             # Simulate training time
             await asyncio.sleep(2)
         
@@ -86,12 +95,25 @@ async def run_training(run_id: int, project_id: int):
             run.status = "completed"
             db.commit()
             
+            # Emit completion event
+            await sio.emit('training_complete', {
+                'run_id': run_id,
+                'status': 'completed'
+            }, room=f"run_{run_id}")
+            
     except Exception as e:
         # Mark run as failed
         run = db.query(RunModel).filter(RunModel.id == run_id).first()
         if run:
             run.status = "failed"
             db.commit()
+            
+            # Emit failure event
+            await sio.emit('training_failed', {
+                'run_id': run_id,
+                'status': 'failed',
+                'error': str(e)
+            }, room=f"run_{run_id}")
         print(f"Training failed: {e}")
     finally:
         db.close()

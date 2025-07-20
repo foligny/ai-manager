@@ -10,13 +10,14 @@ import json
 import asyncio
 from typing import Dict, List
 import os
+import socketio
 
 from app.config import settings
 from app.database import create_tables
 from app.api import auth, projects, runs, metrics, artifacts, training
 
 # Create FastAPI app
-app = FastAPI(
+fastapi_app = FastAPI(
     title=settings.app_name,
     version=settings.version,
     description="AI Training Monitoring Platform",
@@ -24,8 +25,15 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# Create Socket.IO server
+sio = socketio.AsyncServer(
+    async_mode='asgi',
+    cors_allowed_origins='*'
+)
+socket_app = socketio.ASGIApp(sio, fastapi_app)
+
 # Add CORS middleware
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
@@ -34,12 +42,12 @@ app.add_middleware(
 )
 
 # Include API routers
-app.include_router(auth.router)
-app.include_router(projects.router)
-app.include_router(runs.router)
-app.include_router(metrics.router)
-app.include_router(artifacts.router)
-app.include_router(training.router)
+fastapi_app.include_router(auth.router)
+fastapi_app.include_router(projects.router)
+fastapi_app.include_router(runs.router)
+fastapi_app.include_router(metrics.router)
+fastapi_app.include_router(artifacts.router)
+fastapi_app.include_router(training.router)
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -72,8 +80,33 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Socket.IO event handlers
+@sio.event
+async def connect(sid, environ):
+    print(f"Client connected: {sid}")
 
-@app.on_event("startup")
+@sio.event
+async def disconnect(sid):
+    print(f"Client disconnected: {sid}")
+
+@sio.event
+async def join_run(sid, data):
+    """Join a specific training run room."""
+    run_id = data.get('run_id')
+    if run_id:
+        await sio.enter_room(sid, f"run_{run_id}")
+        print(f"Client {sid} joined run {run_id}")
+
+@sio.event
+async def leave_run(sid, data):
+    """Leave a specific training run room."""
+    run_id = data.get('run_id')
+    if run_id:
+        await sio.leave_room(sid, f"run_{run_id}")
+        print(f"Client {sid} left run {run_id}")
+
+
+@fastapi_app.on_event("startup")
 async def startup_event():
     """Initialize application on startup."""
     # Create database tables
@@ -107,7 +140,7 @@ async def startup_event():
         db.close()
 
 
-@app.get("/", response_class=HTMLResponse)
+@fastapi_app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the enhanced professional dashboard."""
     return """
@@ -121,6 +154,7 @@ async def root():
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <style>
             :root {
                 --primary-color: #6366f1;
@@ -211,6 +245,8 @@ async def root():
                 border-radius: 8px;
                 padding: 20px;
                 margin-bottom: 20px;
+                min-height: 400px;
+                height: 400px;
             }
             
             .metric-value {
@@ -266,8 +302,8 @@ async def root():
             
             .chart-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-                gap: 20px;
+                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+                gap: 25px;
                 margin-top: 20px;
             }
             
@@ -484,7 +520,61 @@ async def root():
             let selectedRuns = [];
             let allRuns = [];
             let charts = {};
+            let socket = null;
             
+            // Initialize Socket.IO connection
+            function initializeSocket() {
+                socket = io();
+                
+                socket.on('connect', () => {
+                    console.log('Connected to Socket.IO server');
+                });
+                
+                socket.on('disconnect', () => {
+                    console.log('Disconnected from Socket.IO server');
+                });
+                
+                socket.on('training_update', (data) => {
+                    console.log('Training update received:', data);
+                    updateTrainingStatus(data);
+                    updateChartsRealTime(data.metrics, data.run_id);
+                });
+                
+                socket.on('training_complete', (data) => {
+                    console.log('Training completed:', data);
+                    updateTrainingStatus(data);
+                    loadRuns(); // Refresh runs list
+                });
+                
+                socket.on('training_failed', (data) => {
+                    console.log('Training failed:', data);
+                    updateTrainingStatus(data);
+                    loadRuns(); // Refresh runs list
+                });
+            }
+            
+            function updateTrainingStatus(data) {
+                // Update the running count in the overview
+                const runningElement = document.getElementById('running-runs');
+                if (runningElement) {
+                    const currentRunning = allRuns.filter(r => r.status === 'running').length;
+                    runningElement.textContent = currentRunning;
+                }
+                
+                // Update the specific run status in the sidebar
+                const runItems = document.querySelectorAll('.run-item');
+                runItems.forEach(item => {
+                    const runName = item.querySelector('.fw-bold').textContent;
+                    if (runName.includes(`training_${data.run_id}`)) {
+                        const statusBadge = item.querySelector('.status-badge');
+                        if (statusBadge) {
+                            statusBadge.textContent = data.status;
+                            statusBadge.className = `status-badge status-${data.status}`;
+                        }
+                    }
+                });
+            }
+
             // Global AJAX interceptor for 401 handling
             function setupAjaxInterceptor() {
                 // Override fetch to handle 401 responses globally
@@ -558,6 +648,9 @@ async def root():
                 document.getElementById('dashboard-container').style.display = 'block';
                 document.getElementById('user-info').style.display = 'block';
                 document.getElementById('username').textContent = currentUser.username;
+                
+                // Initialize Socket.IO connection
+                initializeSocket();
                 
                 // Show loading state initially
                 document.getElementById('runs-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -672,6 +765,10 @@ async def root():
                 
                 // Load metrics for the most recent completed run
                 const latestRun = completedRuns[completedRuns.length - 1];
+                
+                // Visually select the latest run in the sidebar
+                selectRunVisually(latestRun);
+                
                 await loadRunMetrics(latestRun.id);
             }
 
@@ -721,17 +818,23 @@ async def root():
                     
                     chartsContainer.appendChild(chartDiv);
                     
-                    // Format x-axis values properly
-                    const xValues = metricData.map(m => {
-                        // If step is a timestamp, convert to readable format
-                        if (typeof m.step === 'number' && m.step > 1000000000) {
-                            return new Date(m.step * 1000).toLocaleTimeString();
-                        }
-                        return m.step;
-                    });
-                    
-                    // Create Plotly chart with better formatting
-                    const trace = {
+                    // Small delay to ensure container is properly sized
+                    setTimeout(() => {
+                        // Format x-axis values properly
+                        const xValues = metricData.map((m, index) => {
+                            // Use step number directly, or index if step is not available
+                            return m.step || index;
+                        });
+                        
+                        // Debug: Log the data to see what we're working with
+                        console.log(`Chart data for ${metricName}:`, {
+                            xValues: xValues,
+                            yValues: metricData.map(m => m.value),
+                            metricData: metricData
+                        });
+                        
+                        // Create Plotly chart with better formatting
+                        const trace = {
                         x: xValues,
                         y: metricData.map(m => m.value),
                         type: 'scatter',
@@ -750,33 +853,54 @@ async def root():
                             title: { text: 'Step', font: { color: '#f9fafb' } },
                             tickfont: { color: '#f9fafb' },
                             gridcolor: '#4b5563',
-                            zerolinecolor: '#4b5563'
+                            zerolinecolor: '#4b5563',
+                            type: 'linear'
                         },
                         yaxis: { 
                             title: { text: metricName.replace(/_/g, ' ').toUpperCase(), font: { color: '#f9fafb' } },
                             tickfont: { color: '#f9fafb' },
                             gridcolor: '#4b5563',
-                            zerolinecolor: '#4b5563'
+                            zerolinecolor: '#4b5563',
+                            type: 'linear'
                         },
                         paper_bgcolor: 'rgba(0,0,0,0)',
                         plot_bgcolor: 'rgba(0,0,0,0)',
                         font: { color: '#f9fafb' },
                         margin: { t: 60, r: 20, b: 60, l: 80 },
                         hovermode: 'x unified',
-                        showlegend: false
+                        showlegend: false,
+                        height: 350,
+                        autosize: true
                     };
                     
                     const config = {
                         responsive: true,
                         displayModeBar: true,
                         modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d'],
-                        displaylogo: false
+                        displaylogo: false,
+                        useResizeHandler: true
                     };
                     
                     Plotly.newPlot(chartDiv.id, [trace], layout, config);
+                    }, 100); // Small delay for proper sizing
                 });
             }
 
+            function selectRunVisually(run) {
+                // Remove active class from all runs
+                document.querySelectorAll('.run-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Add active class to the run item that matches the run ID
+                const runItems = document.querySelectorAll('.run-item');
+                runItems.forEach(item => {
+                    if (item.textContent.includes(run.name)) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+            
             function selectRun(run) {
                 // Remove active class from all runs
                 document.querySelectorAll('.run-item').forEach(item => {
@@ -812,11 +936,15 @@ async def root():
                         const result = await response.json();
                         alert(`Training started! Run ID: ${result.run_id}`);
                         
-                        // Refresh the runs list
-                        loadRuns();
+                        // Join Socket.IO room for this run
+                        if (socket) {
+                            socket.emit('join_run', { run_id: result.run_id });
+                        }
                         
-                        // Start monitoring the new run
-                        monitorTraining(result.run_id);
+                        // Refresh the runs list after a short delay
+                        setTimeout(() => {
+                            loadRuns();
+                        }, 1000);
                     } else {
                         alert('Failed to start training');
                     }
@@ -827,22 +955,10 @@ async def root():
             }
             
             async function monitorTraining(runId) {
-                // Connect to WebSocket for real-time updates
-                const ws = new WebSocket(`ws://${window.location.host}/ws/${runId}`);
-                
-                ws.onmessage = function(event) {
-                    const data = JSON.parse(event.data);
-                    console.log('Training update:', data);
-                    
-                    // Update charts in real-time
-                    if (data.metrics) {
-                        updateChartsRealTime(data.metrics, runId);
-                    }
-                };
-                
-                ws.onerror = function(error) {
-                    console.error('WebSocket error:', error);
-                };
+                // Join Socket.IO room for real-time updates
+                if (socket) {
+                    socket.emit('join_run', { run_id: runId });
+                }
             }
             
             function updateChartsRealTime(metrics, runId) {
@@ -916,7 +1032,7 @@ async def root():
     """
 
 
-@app.websocket("/ws/{run_id}")
+@fastapi_app.websocket("/ws/{run_id}")
 async def websocket_endpoint(websocket: WebSocket, run_id: int):
     """WebSocket endpoint for real-time metric updates."""
     await manager.connect(websocket, run_id)
@@ -928,7 +1044,10 @@ async def websocket_endpoint(websocket: WebSocket, run_id: int):
         manager.disconnect(websocket, run_id)
 
 
-@app.get("/health")
+@fastapi_app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "timestamp": "2023-01-01T00:00:00"} 
+    return {"status": "healthy", "timestamp": "2023-01-01T00:00:00"}
+
+# Export the Socket.IO ASGI app
+app = socket_app 
