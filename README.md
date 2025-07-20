@@ -57,19 +57,66 @@ cp .env.example .env
 alembic upgrade head
 
 # Run the application
+
+## Option 1: HTTP (Development)
+```bash
 python -m uvicorn app.main:app --reload
+```
+
+## Option 2: HTTPS (Development with SSL)
+```bash
+# First, set up SSL certificates (one-time setup)
+python setup_https.py
+
+# Then run with HTTPS
+python run_https.py
+```
+
+## Option 3: Using Makefile (Recommended)
+```bash
+# Install dependencies and initialize database
+make setup
+
+# Start development server (HTTP)
+make dev
+
+# Or run with Docker
+make docker-run
+```
+
+## Option 4: Manual HTTPS Command
+```bash
+python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --ssl-keyfile certs/key.pem --ssl-certfile certs/cert.pem
 ```
 
 ### Usage
 
-1. **Start the application**:
+1. **Start the application** (choose one option):
+
+   **Option A: HTTP (Simple)**
    ```bash
    python -m uvicorn app.main:app --reload
    ```
 
+   **Option B: HTTPS (Secure)**
+   ```bash
+   # One-time setup
+   python setup_https.py
+   
+   # Run with HTTPS
+   python run_https.py
+   ```
+
+   **Option C: Using Makefile (Recommended)**
+   ```bash
+   make setup    # Install and initialize
+   make dev      # Start development server
+   ```
+
 2. **Access the dashboard**:
-   - Web Dashboard: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
+   - **HTTP**: http://localhost:8000
+   - **HTTPS**: https://localhost:8000 (may show security warning for self-signed cert)
+   - **API Documentation**: http://localhost:8000/docs or https://localhost:8000/docs
 
 3. **Integrate with your training**:
    ```python
@@ -166,6 +213,29 @@ DEBUG=True
 ```
 
 ## Development
+
+### Available Scripts and Tools
+
+**Launch Scripts:**
+- `run_https.py` - Launch server with HTTPS (requires SSL setup)
+- `setup_https.py` - Generate SSL certificates for HTTPS development
+
+**Makefile Commands:**
+```bash
+make help      # Show all available commands
+make setup     # Install dependencies and initialize database
+make dev       # Start development server (HTTP)
+make test      # Run tests
+make lint      # Run linting
+make format    # Format code
+make docker-run # Run with Docker Compose
+make clean     # Clean up generated files
+```
+
+**Performance Analysis:**
+- `performance_analysis.py` - Analyze training performance
+- `quick_performance_demo.py` - Quick demo of performance features
+- `targeted_cleanup.py` - Clean up specific training runs
 
 ### Running Tests
 ```bash

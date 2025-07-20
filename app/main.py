@@ -691,7 +691,7 @@ async def root():
                 const password = document.getElementById('password-input').value;
                 
                 try {
-                    const response = await fetch('https://localhost:8000/auth/login', {
+                    const response = await fetch('/auth/login', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
@@ -743,7 +743,7 @@ async def root():
             // Data Loading
             async function loadProjects() {
                 try {
-                    const response = await fetch('https://localhost:8000/projects/', {
+                    const response = await fetch('/projects/', {
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
                         }
@@ -766,7 +766,7 @@ async def root():
                 if (!currentProject) return;
                 
                 try {
-                    const response = await fetch(`https://localhost:8000/runs/?project_id=${currentProject.id}`, {
+                    const response = await fetch(`/runs/?project_id=${currentProject.id}`, {
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
                         }
@@ -886,7 +886,7 @@ async def root():
 
             async function loadRunMetrics(runId) {
                 try {
-                    const response = await fetch(`https://localhost:8000/metrics/${runId}`, {
+                    const response = await fetch(`/metrics/${runId}`, {
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
                         }
@@ -1039,7 +1039,7 @@ async def root():
                 console.log('Starting training for project:', currentProject);
                 
                 try {
-                    const response = await fetch(`https://localhost:8000/training/start/${currentProject.id}`, {
+                                            const response = await fetch(`/training/start/${currentProject.id}`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -1125,7 +1125,7 @@ async def root():
                 formData.append('model', file);
                 
                 try {
-                    const response = await fetch('https://localhost:8000/models/upload', {
+                    const response = await fetch('/models/upload', {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -1148,7 +1148,7 @@ async def root():
 
             async function loadDemoModel(modelName) {
                 try {
-                    const response = await fetch(`https://localhost:8000/models/load/${modelName}`, {
+                    const response = await fetch(`/models/load/${modelName}`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -1181,7 +1181,7 @@ async def root():
                 formData.append('test_data', dataFile);
                 
                 try {
-                    const response = await fetch('https://localhost:8000/models/test', {
+                    const response = await fetch('/models/test', {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -1212,14 +1212,14 @@ async def root():
                 resultsDiv.scrollIntoView({ behavior: 'smooth' });
             }
 
+            // Setup global AJAX interceptor
+            setupAjaxInterceptor();
+            
             // Event Listeners
             document.getElementById('login-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 login();
             });
-
-            // Setup global AJAX interceptor
-            setupAjaxInterceptor();
             
             // Check if user is already logged in
             const token = localStorage.getItem('token');
@@ -1234,7 +1234,7 @@ async def root():
             
             async function validateTokenAndLoadData() {
                 try {
-                    const response = await fetch('https://localhost:8000/projects/', {
+                    const response = await fetch('/projects/', {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }
