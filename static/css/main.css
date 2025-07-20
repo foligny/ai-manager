@@ -1,0 +1,138 @@
+/* Main CSS for AI Manager */
+
+/* Global Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1a1a1a;
+    color: #f9fafb;
+}
+
+/* Loading Spinner */
+.loading {
+    text-align: center;
+    padding: 2rem;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Cursor pointer for clickable elements */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* Card hover effects */
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+/* Project and Run items */
+.project-item, .run-item {
+    transition: background-color 0.2s ease-in-out;
+}
+
+.project-item:hover, .run-item:hover {
+    background-color: #4b5563 !important;
+}
+
+.run-item.active {
+    background-color: #6366f1 !important;
+    border-left: 4px solid #f59e0b;
+}
+
+/* Chart containers */
+#charts-container {
+    min-height: 400px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .col-md-6 {
+        width: 100%;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #2d3748;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4a5568;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #718096;
+}
+
+/* Form styling */
+.form-control {
+    background-color: #2d3748;
+    border-color: #4a5568;
+    color: #f9fafb;
+}
+
+.form-control:focus {
+    background-color: #2d3748;
+    border-color: #6366f1;
+    color: #f9fafb;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+/* Button styling */
+.btn-primary {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+
+.btn-primary:hover {
+    background-color: #5855eb;
+    border-color: #5855eb;
+}
+
+/* Badge styling */
+.badge {
+    font-size: 0.75rem;
+}
+
+/* Navigation */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar */
+.border-end {
+    border-color: #4a5568 !important;
+}
+
+/* Text utilities */
+.text-muted {
+    color: #a0aec0 !important;
+}
+
+/* Chart responsiveness */
+.plotly-graph-div {
+    width: 100% !important;
+    height: 100% !important;
+} 
