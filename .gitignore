@@ -266,3 +266,10 @@ Thumbs.db
 .env.local
 .env.production
 .env.staging
+
+# Storage directory (contains model files and artifacts)
+storage/
+
+# Test and debug files
+test_dashboard_debug.html
+training_curves.png
