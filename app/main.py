@@ -14,7 +14,7 @@ import socketio
 
 from app.config import settings
 from app.database import create_tables
-from app.api import auth, projects, runs, metrics, artifacts, training
+from app.api import auth, projects, runs, metrics, artifacts, training, models
 
 # Create FastAPI app
 fastapi_app = FastAPI(
@@ -48,6 +48,7 @@ fastapi_app.include_router(runs.router)
 fastapi_app.include_router(metrics.router)
 fastapi_app.include_router(artifacts.router)
 fastapi_app.include_router(training.router)
+fastapi_app.include_router(models.router)
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -485,6 +486,83 @@ async def root():
                     </div>
                 </div>
 
+                <!-- Model Testing Section -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs me-2"></i>Model Testing
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Upload Model</h6>
+                                <div class="mb-3">
+                                    <input type="file" class="form-control" id="model-file" accept=".pth,.pt,.pkl">
+                                </div>
+                                <button class="btn btn-primary" onclick="uploadModel()">
+                                    <i class="fas fa-upload"></i> Upload Model
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Test Data</h6>
+                                <div class="mb-3">
+                                    <input type="file" class="form-control" id="test-data-file" accept=".npy,.csv,.json">
+                                </div>
+                                <button class="btn btn-success" onclick="testModel()">
+                                    <i class="fas fa-play"></i> Test Model
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6>Demo Models</h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6>Demo Model</h6>
+                                            <p class="text-muted small">demo_model.pth</p>
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadDemoModel('demo_model.pth')">
+                                                Load Model
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6>Run 1 Model</h6>
+                                            <p class="text-muted small">model_run_1.pth</p>
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadDemoModel('model_run_1.pth')">
+                                                Load Model
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6>Run 2 Model</h6>
+                                            <p class="text-muted small">model_run_2.pth</p>
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadDemoModel('model_run_2.pth')">
+                                                Load Model
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6>Test Results</h6>
+                            <div id="test-results" class="alert alert-info" style="display: none;">
+                                <div id="test-output"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Run Comparison Table -->
                 <div class="card mt-4" id="comparison-table" style="display: none;">
                     <div class="card-header">
@@ -525,7 +603,7 @@ async def root():
             // Initialize Socket.IO connection
             function initializeSocket() {
                 console.log('Initializing Socket.IO connection...');
-                socket = io();
+                socket = io('https://localhost:8000');
                 
                 socket.on('connect', () => {
                     console.log('Connected to Socket.IO server with ID:', socket.id);
@@ -613,7 +691,7 @@ async def root():
                 const password = document.getElementById('password-input').value;
                 
                 try {
-                    const response = await fetch('/auth/login', {
+                    const response = await fetch('https://localhost:8000/auth/login', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
@@ -665,7 +743,7 @@ async def root():
             // Data Loading
             async function loadProjects() {
                 try {
-                    const response = await fetch('/projects/', {
+                    const response = await fetch('https://localhost:8000/projects/', {
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
                         }
@@ -688,7 +766,7 @@ async def root():
                 if (!currentProject) return;
                 
                 try {
-                    const response = await fetch(`/runs/?project_id=${currentProject.id}`, {
+                    const response = await fetch(`https://localhost:8000/runs/?project_id=${currentProject.id}`, {
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
                         }
@@ -808,7 +886,7 @@ async def root():
 
             async function loadRunMetrics(runId) {
                 try {
-                    const response = await fetch(`/metrics/${runId}`, {
+                    const response = await fetch(`https://localhost:8000/metrics/${runId}`, {
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
                         }
@@ -961,7 +1039,7 @@ async def root():
                 console.log('Starting training for project:', currentProject);
                 
                 try {
-                    const response = await fetch(`/training/start/${currentProject.id}`, {
+                    const response = await fetch(`https://localhost:8000/training/start/${currentProject.id}`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -1033,6 +1111,107 @@ async def root():
                 URL.revokeObjectURL(url);
             }
 
+            // Model Testing Functions
+            async function uploadModel() {
+                const fileInput = document.getElementById('model-file');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('Please select a model file to upload');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('model', file);
+                
+                try {
+                    const response = await fetch('https://localhost:8000/models/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        alert(`Model uploaded successfully! Model ID: ${result.model_id}`);
+                        showTestResults(`Model uploaded: ${file.name}\nModel ID: ${result.model_id}`);
+                    } else {
+                        alert('Failed to upload model');
+                    }
+                } catch (error) {
+                    console.error('Error uploading model:', error);
+                    alert('Error uploading model');
+                }
+            }
+
+            async function loadDemoModel(modelName) {
+                try {
+                    const response = await fetch(`https://localhost:8000/models/load/${modelName}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        alert(`Demo model loaded successfully! Model: ${modelName}`);
+                        showTestResults(`Demo model loaded: ${modelName}\nModel info: ${JSON.stringify(result, null, 2)}`);
+                    } else {
+                        alert('Failed to load demo model');
+                    }
+                } catch (error) {
+                    console.error('Error loading demo model:', error);
+                    alert('Error loading demo model');
+                }
+            }
+
+            async function testModel() {
+                const dataInput = document.getElementById('test-data-file');
+                const dataFile = dataInput.files[0];
+                
+                if (!dataFile) {
+                    alert('Please select test data file');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('test_data', dataFile);
+                
+                try {
+                    const response = await fetch('https://localhost:8000/models/test', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        showTestResults(`Test completed successfully!\n\nResults:\n${JSON.stringify(result, null, 2)}`);
+                    } else {
+                        alert('Failed to test model');
+                    }
+                } catch (error) {
+                    console.error('Error testing model:', error);
+                    alert('Error testing model');
+                }
+            }
+
+            function showTestResults(message) {
+                const resultsDiv = document.getElementById('test-results');
+                const outputDiv = document.getElementById('test-output');
+                
+                outputDiv.innerHTML = message.replace(/\n/g, '<br>');
+                resultsDiv.style.display = 'block';
+                
+                // Scroll to results
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            }
+
             // Event Listeners
             document.getElementById('login-form').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -1055,7 +1234,7 @@ async def root():
             
             async function validateTokenAndLoadData() {
                 try {
-                    const response = await fetch('/projects/', {
+                    const response = await fetch('https://localhost:8000/projects/', {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }
@@ -1091,5 +1270,5 @@ async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "timestamp": "2023-01-01T00:00:00"}
 
-# Export the Socket.IO ASGI app
+# Export the Socket.IO ASGI app (wraps FastAPI app)
 app = socket_app 
