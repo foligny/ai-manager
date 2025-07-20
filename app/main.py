@@ -524,14 +524,19 @@ async def root():
             
             // Initialize Socket.IO connection
             function initializeSocket() {
+                console.log('Initializing Socket.IO connection...');
                 socket = io();
                 
                 socket.on('connect', () => {
-                    console.log('Connected to Socket.IO server');
+                    console.log('Connected to Socket.IO server with ID:', socket.id);
                 });
                 
                 socket.on('disconnect', () => {
                     console.log('Disconnected from Socket.IO server');
+                });
+                
+                socket.on('connect_error', (error) => {
+                    console.error('Socket.IO connection error:', error);
                 });
                 
                 socket.on('training_update', (data) => {
@@ -714,18 +719,29 @@ async def root():
                 // Sort runs by creation time (newest first)
                 const sortedRuns = [...allRuns].sort((a, b) => b.id - a.id);
                 
-                sortedRuns.forEach(run => {
+                // Only show the 5 most recent runs to avoid clutter
+                const recentRuns = sortedRuns.slice(0, 5);
+                
+                console.log('All runs:', allRuns);
+                console.log('Sorted runs (newest first):', sortedRuns);
+                console.log('Recent runs to display:', recentRuns);
+                
+                recentRuns.forEach((run, index) => {
                     const runItem = document.createElement('div');
                     runItem.className = `run-item ${run.status}`;
                     
                     // Format creation time
                     const createdTime = new Date(run.created_at).toLocaleString();
                     
+                    // Add indicator for the latest run
+                    const isLatest = index === 0;
+                    const latestIndicator = isLatest ? ' <span class="badge bg-primary">LATEST</span>' : '';
+                    
                     runItem.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="fw-bold">${run.name}</div>
-                                <small class="text-muted">${createdTime}</small>
+                                <div class="fw-bold">${run.name}${latestIndicator}</div>
+                                <small class="text-muted">ID: ${run.id} - ${createdTime}</small>
                             </div>
                             <span class="status-badge status-${run.status}">${run.status}</span>
                         </div>
@@ -733,6 +749,14 @@ async def root():
                     runItem.onclick = () => selectRun(run);
                     runsList.appendChild(runItem);
                 });
+                
+                // Show count of total runs if there are more
+                if (sortedRuns.length > 5) {
+                    const moreRunsDiv = document.createElement('div');
+                    moreRunsDiv.className = 'text-center text-muted mt-2';
+                    moreRunsDiv.innerHTML = `<small>Showing 5 of ${sortedRuns.length} runs</small>`;
+                    runsList.appendChild(moreRunsDiv);
+                }
             }
 
             function updateMetricsOverview() {
@@ -756,20 +780,30 @@ async def root():
                     return;
                 }
                 
-                // Load metrics for completed runs only
-                const completedRuns = allRuns.filter(r => r.status === 'completed');
-                if (completedRuns.length === 0) {
-                    chartsContainer.innerHTML = '<div class="text-center text-muted">No completed runs available for charts</div>';
-                    return;
-                }
+                // Sort runs by ID (newest first) and get the latest run
+                const sortedRuns = [...allRuns].sort((a, b) => b.id - a.id);
+                const latestRun = sortedRuns[0];
                 
-                // Load metrics for the most recent completed run
-                const latestRun = completedRuns[completedRuns.length - 1];
+                console.log('Latest run:', latestRun);
                 
                 // Visually select the latest run in the sidebar
                 selectRunVisually(latestRun);
                 
-                await loadRunMetrics(latestRun.id);
+                // Load metrics for the latest run (if it has metrics)
+                if (latestRun.status === 'completed') {
+                    await loadRunMetrics(latestRun.id);
+                } else {
+                    // Show message for running or pending runs
+                    chartsContainer.innerHTML = `
+                        <div class="text-center">
+                            <div class="alert alert-info">
+                                <h5>Latest Run: ${latestRun.name}</h5>
+                                <p>Status: <span class="badge bg-${latestRun.status === 'running' ? 'warning' : 'secondary'}">${latestRun.status}</span></p>
+                                <p>This run is currently ${latestRun.status}. Charts will appear when training completes.</p>
+                            </div>
+                        </div>
+                    `;
+                }
             }
 
             async function loadRunMetrics(runId) {
@@ -924,6 +958,8 @@ async def root():
                     return;
                 }
                 
+                console.log('Starting training for project:', currentProject);
+                
                 try {
                     const response = await fetch(`/training/start/${currentProject.id}`, {
                         method: 'POST',
@@ -934,18 +970,24 @@ async def root():
                     
                     if (response.ok) {
                         const result = await response.json();
+                        console.log('Training started successfully:', result);
                         alert(`Training started! Run ID: ${result.run_id}`);
                         
                         // Join Socket.IO room for this run
                         if (socket) {
+                            console.log('Joining Socket.IO room for run:', result.run_id);
                             socket.emit('join_run', { run_id: result.run_id });
+                        } else {
+                            console.error('Socket not connected!');
                         }
                         
                         // Refresh the runs list after a short delay
                         setTimeout(() => {
+                            console.log('Refreshing runs list...');
                             loadRuns();
                         }, 1000);
                     } else {
+                        console.error('Failed to start training:', response.status);
                         alert('Failed to start training');
                     }
                 } catch (error) {
