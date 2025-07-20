@@ -4,6 +4,7 @@ class DashboardManager {
         this.currentProject = null;
         this.projects = [];
         this.runs = [];
+        this.models = [];
         this.socket = null;
         this.setupSocketIO();
         this.loadDashboard();
@@ -29,6 +30,7 @@ class DashboardManager {
     async loadDashboard() {
         try {
             await this.loadProjects();
+            await this.loadModels();
             await this.updateOverview();
         } catch (error) {
             console.error('Failed to load dashboard:', error);
@@ -78,6 +80,17 @@ class DashboardManager {
         }
     }
 
+    async loadModels() {
+        try {
+            console.log('Loading models...');
+            this.models = await api.getModels();
+            console.log('Models loaded:', this.models);
+            this.renderModels();
+        } catch (error) {
+            console.error('Failed to load models:', error);
+        }
+    }
+
     renderProjects() {
         const projectsList = document.getElementById('projects-list');
         if (!projectsList) return;
@@ -94,6 +107,37 @@ class DashboardManager {
                         <span><i class="fas fa-folder me-2"></i>${project.name}</span>
                         <span class="badge bg-primary">${project.runs_count || 0}</span>
                     </div>
+                    ${tagsHtml}
+                </div>
+            `;
+        }).join('');
+    }
+
+    renderModels() {
+        const modelsList = document.getElementById('models-list');
+        if (!modelsList) return;
+
+        modelsList.innerHTML = this.models.map(model => {
+            const sizeMB = (model.size / (1024 * 1024)).toFixed(1);
+            const capabilitiesHtml = model.capabilities && model.capabilities.length > 0 
+                ? `<div class="mt-1"><small>${model.capabilities.map(cap => `<span class="badge bg-success me-1">${cap}</span>`).join('')}</small></div>`
+                : '';
+            
+            const tagsHtml = model.tags && model.tags.length > 0 
+                ? `<div class="mt-1"><small>${model.tags.map(tag => `<span class="badge bg-info me-1">${tag}</span>`).join('')}</small></div>`
+                : '';
+            
+            return `
+                <div class="model-item mb-2 p-2 rounded bg-secondary text-light cursor-pointer" 
+                     onclick="dashboard.selectModel('${model.name}')">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-robot me-2"></i>${model.name}</span>
+                        <span class="badge bg-primary">${sizeMB}MB</span>
+                    </div>
+                    <div class="mt-1">
+                        <small class="text-muted">Type: ${model.type}</small>
+                    </div>
+                    ${capabilitiesHtml}
                     ${tagsHtml}
                 </div>
             `;
@@ -152,11 +196,13 @@ class DashboardManager {
     async updateOverview() {
         const totalProjects = this.projects.length;
         const totalRuns = this.runs.length;
+        const totalModels = this.models.length;
         const runningCount = this.runs.filter(run => run.status === 'running').length;
         const completedCount = this.runs.filter(run => run.status === 'completed').length;
 
         document.getElementById('total-projects').textContent = totalProjects;
         document.getElementById('total-runs').textContent = totalRuns;
+        document.getElementById('total-models').textContent = totalModels;
         document.getElementById('running-count').textContent = runningCount;
         document.getElementById('completed-count').textContent = completedCount;
     }
@@ -179,6 +225,15 @@ class DashboardManager {
         
         // Load metrics for selected run
         await this.loadRunMetrics(runId);
+    }
+
+    async selectModel(modelName) {
+        try {
+            // Navigate to inference page with the selected model
+            window.location.href = `/inference?model=${encodeURIComponent(modelName)}`;
+        } catch (error) {
+            console.error('Failed to select model:', error);
+        }
     }
 
     handleMetricUpdate(data) {

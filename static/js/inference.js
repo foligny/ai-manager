@@ -18,6 +18,14 @@ class InferenceManager {
         
         console.log('Token found, loading models...');
         await this.loadModels();
+        
+        // Check for model parameter in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const modelParam = urlParams.get('model');
+        if (modelParam) {
+            console.log('Model parameter found:', modelParam);
+            this.selectModel(modelParam);
+        }
     }
 
     setupEventListeners() {
@@ -108,6 +116,7 @@ class InferenceManager {
             
             return `
                 <div class="model-item mb-3 p-3 rounded bg-secondary text-light cursor-pointer" 
+                     data-model-name="${model.name}"
                      onclick="inference.selectModel('${model.name}')">
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1">
@@ -160,14 +169,21 @@ class InferenceManager {
         
         // Find the selected model
         const selectedModel = this.models.find(model => model.name === modelName);
-        if (!selectedModel) return;
+        if (!selectedModel) {
+            console.warn(`Model not found: ${modelName}`);
+            return;
+        }
         
         // Update UI to show selected model
         document.querySelectorAll('.model-item').forEach(item => {
             item.classList.remove('active');
         });
         
-        event.currentTarget.classList.add('active');
+        // Add active class to the correct model item
+        const modelItem = document.querySelector(`[data-model-name="${modelName}"]`);
+        if (modelItem) {
+            modelItem.classList.add('active');
+        }
         
         // Show/hide upload sections based on model capabilities
         this.updateUploadSections(selectedModel);
