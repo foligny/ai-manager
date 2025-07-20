@@ -58,16 +58,12 @@ async def load_demo_model(
 ):
     """Load a demo model."""
     
-    # Check if model exists in root directory
-    model_path = os.path.join(os.getcwd(), model_name)
+    # Check if model exists in unified models directory
+    models_dir = os.path.join(os.getcwd(), "models")
+    model_path = os.path.join(models_dir, model_name)
     
     if not os.path.exists(model_path):
-        # Check in sample_project directory
-        sample_path = os.path.join(os.getcwd(), "sample_project", model_name)
-        if os.path.exists(sample_path):
-            model_path = sample_path
-        else:
-            raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
+        raise HTTPException(status_code=404, detail=f"Model {model_name} not found in models directory")
     
     try:
         # Load the model (this is a simplified version)
@@ -183,33 +179,32 @@ async def list_models(
         
         return capabilities
     
-    # Check root directory for demo models
+    # Check unified models directory
     root_dir = os.getcwd()
-    for file in os.listdir(root_dir):
-        if file.endswith(('.pth', '.pt', '.pkl')):
-            capabilities = get_model_capabilities(file)
-            models.append({
-                "name": file,
-                "path": os.path.join(root_dir, file),
-                "size": os.path.getsize(os.path.join(root_dir, file)),
-                "type": "demo",
-                "capabilities": capabilities,
-                "supported_formats": get_supported_formats(capabilities)
-            })
-    
-    # Check sample_project directory
-    sample_dir = os.path.join(root_dir, "sample_project")
-    if os.path.exists(sample_dir):
-        for file in os.listdir(sample_dir):
+    models_dir = os.path.join(root_dir, "models")
+    if os.path.exists(models_dir):
+        for file in os.listdir(models_dir):
             if file.endswith(('.pth', '.pt', '.pkl')):
                 capabilities = get_model_capabilities(file)
+                file_path = os.path.join(models_dir, file)
+                
+                # Determine model type based on filename and size
+                model_type = "demo"
+                if "test" in file.lower():
+                    model_type = "test"
+                elif file.startswith("model_run_"):
+                    model_type = "training"
+                elif any(keyword in file.lower() for keyword in ['image', 'sentiment', 'speech']):
+                    model_type = "specialized"
+                
                 models.append({
                     "name": file,
-                    "path": os.path.join(sample_dir, file),
-                    "size": os.path.getsize(os.path.join(sample_dir, file)),
-                    "type": "sample",
+                    "path": file_path,
+                    "size": os.path.getsize(file_path),
+                    "type": model_type,
                     "capabilities": capabilities,
-                    "supported_formats": get_supported_formats(capabilities)
+                    "supported_formats": get_supported_formats(capabilities),
+                    "tags": [model_type, "unified", "available"]
                 })
     
     return {"models": models}

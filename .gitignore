@@ -270,6 +270,9 @@ Thumbs.db
 # Storage directory (contains model files and artifacts)
 storage/
 
+# Unified models directory
+models/
+
 # Test and debug files
 test_dashboard_debug.html
 training_curves.png
