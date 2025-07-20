@@ -484,6 +484,33 @@ async def root():
             let selectedRuns = [];
             let allRuns = [];
             let charts = {};
+            
+            // Global AJAX interceptor for 401 handling
+            function setupAjaxInterceptor() {
+                // Override fetch to handle 401 responses globally
+                const originalFetch = window.fetch;
+                window.fetch = async function(...args) {
+                    try {
+                        const response = await originalFetch(...args);
+                        
+                        // Check for 401 Unauthorized
+                        if (response.status === 401) {
+                            console.log('401 Unauthorized detected, redirecting to login');
+                            localStorage.removeItem('token');
+                            showLogin();
+                            return response; // Return response so calling code can handle it
+                        }
+                        
+                        return response;
+                    } catch (error) {
+                        console.error('Network error:', error);
+                        // On network errors, also redirect to login
+                        localStorage.removeItem('token');
+                        showLogin();
+                        throw error;
+                    }
+                };
+            }
 
             // Authentication
             async function login() {
@@ -553,17 +580,9 @@ async def root():
                             loadRuns();
                             updateProjectInfo();
                         }
-                    } else if (response.status === 401) {
-                        // Token expired or invalid, redirect to login
-                        localStorage.removeItem('token');
-                        showLogin();
-                        return;
                     }
                 } catch (error) {
                     console.error('Error loading projects:', error);
-                    // Network error, redirect to login
-                    localStorage.removeItem('token');
-                    showLogin();
                 }
             }
 
@@ -582,17 +601,9 @@ async def root():
                         updateRunsList();
                         updateMetricsOverview();
                         loadCharts();
-                    } else if (response.status === 401) {
-                        // Token expired or invalid, redirect to login
-                        localStorage.removeItem('token');
-                        showLogin();
-                        return;
                     }
                 } catch (error) {
                     console.error('Error loading runs:', error);
-                    // Network error, redirect to login
-                    localStorage.removeItem('token');
-                    showLogin();
                 }
             }
 
@@ -675,20 +686,12 @@ async def root():
                     if (response.ok) {
                         const metrics = await response.json();
                         createCharts(metrics, runId);
-                    } else if (response.status === 401) {
-                        // Token expired or invalid, redirect to login
-                        localStorage.removeItem('token');
-                        showLogin();
-                        return;
                     } else {
                         // Show error message for other status codes
                         console.error('Error loading metrics:', response.status);
                     }
                 } catch (error) {
                     console.error('Error loading metrics:', error);
-                    // Network error, redirect to login
-                    localStorage.removeItem('token');
-                    showLogin();
                 }
             }
 
@@ -878,6 +881,9 @@ async def root():
                 login();
             });
 
+            // Setup global AJAX interceptor
+            setupAjaxInterceptor();
+            
             // Check if user is already logged in
             const token = localStorage.getItem('token');
             if (token) {
@@ -899,15 +905,9 @@ async def root():
                     
                     if (response.ok) {
                         loadProjects();
-                    } else if (response.status === 401) {
-                        // Token is invalid, clear it and show login
-                        localStorage.removeItem('token');
-                        showLogin();
                     }
                 } catch (error) {
                     console.error('Error validating token:', error);
-                    localStorage.removeItem('token');
-                    showLogin();
                 }
             }
         </script>
