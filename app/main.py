@@ -687,6 +687,8 @@ async def root():
 
             // Authentication
             async function login() {
+                alert('here');
+                console.log('login');
                 const username = document.getElementById('username-input').value;
                 const password = document.getElementById('password-input').value;
                 
@@ -1215,11 +1217,26 @@ async def root():
             // Setup global AJAX interceptor
             setupAjaxInterceptor();
             
-            // Event Listeners
-            document.getElementById('login-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                login();
-            });
+            // Event Listeners - Wait for DOM to be ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setupEventListeners);
+            } else {
+                setupEventListeners();
+            }
+            
+            function setupEventListeners() {
+                const loginForm = document.getElementById('login-form');
+                if (loginForm) {
+                    console.log('Setting up login form event listener');
+                    loginForm.addEventListener('submit', function(e) {
+                        alert('formsubmit');
+                        e.preventDefault();
+                        login();
+                    });
+                } else {
+                    console.error('Login form not found!');
+                }
+            }
             
             // Check if user is already logged in
             const token = localStorage.getItem('token');
