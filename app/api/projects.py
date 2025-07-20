@@ -9,7 +9,7 @@ from app.database import get_db, User, Project
 from app.schemas.project import ProjectCreate, Project as ProjectSchema, ProjectUpdate
 from app.api.auth import get_current_user
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(tags=["projects"])
 
 
 @router.get("/", response_model=List[ProjectSchema])

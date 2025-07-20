@@ -64,8 +64,12 @@ class APIClient {
 
     // Projects
     async getProjects() {
+        console.log('API: Getting projects...');
         const response = await this.request('/projects/');
-        return response.ok ? await response.json() : [];
+        console.log('API: Projects response:', response.status, response.ok);
+        const data = response.ok ? await response.json() : [];
+        console.log('API: Projects data:', data);
+        return data;
     }
 
     async createProject(name, description = '') {

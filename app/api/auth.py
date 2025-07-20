@@ -12,7 +12,7 @@ from app.database import get_db, User
 from app.schemas.auth import UserCreate, User as UserSchema, Token, LoginRequest
 from app.config import settings
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(tags=["authentication"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 

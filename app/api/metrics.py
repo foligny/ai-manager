@@ -10,7 +10,7 @@ from app.database import get_db, User, Run, Metric, Project
 from app.schemas.metric import MetricCreate, Metric as MetricSchema, MetricBatch, MetricHistory, MetricSummary
 from app.api.auth import get_current_user
 
-router = APIRouter(prefix="/metrics", tags=["metrics"])
+router = APIRouter(tags=["metrics"])
 
 
 @router.post("/{run_id}", response_model=MetricSchema)

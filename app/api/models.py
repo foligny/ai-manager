@@ -14,7 +14,7 @@ from app.database import get_db
 from app.api.auth import get_current_user
 from app.config import settings
 
-router = APIRouter(prefix="/models", tags=["models"])
+router = APIRouter(tags=["models"])
 
 
 @router.post("/upload")

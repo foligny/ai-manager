@@ -36,23 +36,29 @@ class AuthManager {
             try {
                 // Validate token by trying to load projects
                 const projects = await api.getProjects();
-                if (projects.length > 0) {
-                    this.currentUser = { username: 'admin' };
+                this.currentUser = { username: 'admin' };
+                // Only redirect to dashboard if we're on the login page
+                if (window.location.pathname === '/login') {
                     this.showDashboard();
-                } else {
-                    this.showLogin();
                 }
             } catch (error) {
                 console.error('Token validation failed:', error);
+                localStorage.removeItem('token'); // Clear invalid token
                 this.showLogin();
             }
         } else {
-            this.showLogin();
+            // Only redirect to login if we're not already on the login page
+            if (window.location.pathname !== '/login') {
+                this.showLogin();
+            }
         }
     }
 
     showLogin() {
-        window.location.href = '/login';
+        // Only redirect to login if we're not already on the login page
+        if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+        }
     }
 
     showDashboard() {

@@ -13,7 +13,7 @@ from app.schemas.artifact import ArtifactCreate, Artifact as ArtifactSchema
 from app.api.auth import get_current_user
 from app.config import settings
 
-router = APIRouter(prefix="/runs", tags=["artifacts"])
+router = APIRouter(tags=["artifacts"])
 
 
 @router.post("/{run_id}/artifacts", response_model=ArtifactSchema)

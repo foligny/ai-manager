@@ -9,7 +9,7 @@ from app.database import get_db, User, Project, Run
 from app.schemas.run import RunCreate, Run as RunSchema, RunUpdate, RunSummary
 from app.api.auth import get_current_user
 
-router = APIRouter(prefix="/runs", tags=["runs"])
+router = APIRouter(tags=["runs"])
 
 
 @router.get("/", response_model=List[RunSummary])

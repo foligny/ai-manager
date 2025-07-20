@@ -16,7 +16,7 @@ from app.schemas.run import RunCreate, Run
 from app.schemas.metric import MetricCreate
 from app.database import SessionLocal, Run as RunModel, Metric as MetricModel
 
-router = APIRouter(prefix="/training", tags=["training"])
+router = APIRouter(tags=["training"])
 
 
 @router.post("/start/{project_id}")

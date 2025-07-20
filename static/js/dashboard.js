@@ -37,7 +37,9 @@ class DashboardManager {
 
     async loadProjects() {
         try {
+            console.log('Loading projects...');
             this.projects = await api.getProjects();
+            console.log('Projects loaded:', this.projects);
             this.renderProjects();
             
             if (this.projects.length > 0) {
