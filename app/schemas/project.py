@@ -12,6 +12,7 @@ class ProjectBase(BaseModel):
     name: str
     description: Optional[str] = None
     is_public: bool = False
+    tags: Optional[List[str]] = []
 
 
 class ProjectCreate(ProjectBase):
@@ -24,6 +25,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_public: Optional[bool] = None
+    tags: Optional[List[str]] = None
 
 
 class Project(ProjectBase):

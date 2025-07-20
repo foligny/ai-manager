@@ -52,6 +52,7 @@ class Project(Base):
     description = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     is_public = Column(Boolean, default=False)
+    tags = Column(JSON, default=[])  # Project tags
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

@@ -82,15 +82,22 @@ class DashboardManager {
         const projectsList = document.getElementById('projects-list');
         if (!projectsList) return;
 
-        projectsList.innerHTML = this.projects.map(project => `
-            <div class="project-item mb-2 p-2 rounded bg-secondary text-light cursor-pointer" 
-                 onclick="dashboard.selectProject(${project.id})">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span><i class="fas fa-folder me-2"></i>${project.name}</span>
-                    <span class="badge bg-primary">${project.runs_count || 0}</span>
+        projectsList.innerHTML = this.projects.map(project => {
+            const tagsHtml = project.tags && project.tags.length > 0 
+                ? `<div class="mt-1"><small>${project.tags.map(tag => `<span class="badge bg-info me-1">${tag}</span>`).join('')}</small></div>`
+                : '';
+            
+            return `
+                <div class="project-item mb-2 p-2 rounded bg-secondary text-light cursor-pointer" 
+                     onclick="dashboard.selectProject(${project.id})">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-folder me-2"></i>${project.name}</span>
+                        <span class="badge bg-primary">${project.runs_count || 0}</span>
+                    </div>
+                    ${tagsHtml}
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     renderRuns() {
@@ -110,6 +117,11 @@ class DashboardManager {
             // Format creation time
             const createdAt = new Date(run.created_at).toLocaleString();
             
+            // Render tags if they exist
+            const tagsHtml = run.tags && run.tags.length > 0 
+                ? `<div class="mt-1"><small>${run.tags.map(tag => `<span class="badge bg-info me-1">${tag}</span>`).join('')}</small></div>`
+                : '';
+            
             return `
                 <div class="run-item mb-2 p-2 rounded ${statusClass} text-light cursor-pointer" 
                      onclick="dashboard.selectRun(${run.id})">
@@ -122,6 +134,7 @@ class DashboardManager {
                             ${run.status}
                         </span>
                     </div>
+                    ${tagsHtml}
                 </div>
             `;
         }).join('');
