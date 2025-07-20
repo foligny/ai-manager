@@ -687,8 +687,7 @@ async def root():
 
             // Authentication
             async function login() {
-                alert('here');
-                console.log('login');
+                console.log('login called');
                 const username = document.getElementById('username-input').value;
                 const password = document.getElementById('password-input').value;
                 
@@ -1207,7 +1206,7 @@ async def root():
                 const resultsDiv = document.getElementById('test-results');
                 const outputDiv = document.getElementById('test-output');
                 
-                outputDiv.innerHTML = message.replace(/\n/g, '<br>');
+                outputDiv.innerHTML = message.replace(/\\n/g, '<br>');
                 resultsDiv.style.display = 'block';
                 
                 // Scroll to results
@@ -1229,7 +1228,7 @@ async def root():
                 if (loginForm) {
                     console.log('Setting up login form event listener');
                     loginForm.addEventListener('submit', function(e) {
-                        alert('formsubmit');
+                        console.log('form submitted');
                         e.preventDefault();
                         login();
                     });
