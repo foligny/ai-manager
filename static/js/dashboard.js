@@ -310,14 +310,21 @@ class DashboardManager {
                 if (assignedModels.length === 0) {
                     container.innerHTML = '<small class="text-muted">No models assigned to this project</small>';
                 } else {
-                    container.innerHTML = assignedModels.map(model => `
+                                    container.innerHTML = assignedModels.map(model => {
+                    const tagsInfo = model.model_capabilities && model.model_capabilities.length > 0 ? 
+                        `<small class="text-muted d-block">Capabilities: ${model.model_capabilities.join(', ')}</small>` : '';
+                    return `
                         <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-secondary rounded">
-                            <span><i class="fas fa-robot me-2"></i>${model.model_name}</span>
+                            <div>
+                                <span><i class="fas fa-robot me-2"></i>${model.model_name}</span>
+                                ${tagsInfo}
+                            </div>
                             <button class="btn btn-sm btn-outline-danger" onclick="event.preventDefault(); dashboard.removeModelFromProject('${model.model_name}')" type="button">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                    `).join('');
+                    `;
+                }).join('');
                 }
                 console.log('Assigned models HTML updated');
             } else {
@@ -436,9 +443,14 @@ class DashboardManager {
                 
                 // Add to assigned models
                 const container = document.getElementById('assigned-models');
+                const tagsInfo = result.tags && result.tags.length > 0 ? 
+                    `<small class="text-muted d-block">Tags: ${result.tags.join(', ')}</small>` : '';
                 const modelHtml = `
                     <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-secondary rounded">
-                        <span><i class="fas fa-robot me-2"></i>${result.model_name}</span>
+                        <div>
+                            <span><i class="fas fa-robot me-2"></i>${result.model_name}</span>
+                            ${tagsInfo}
+                        </div>
                         <button class="btn btn-sm btn-outline-danger" onclick="event.preventDefault(); dashboard.removeModelFromProject('${result.model_name}')" type="button">
                             <i class="fas fa-times"></i>
                         </button>

@@ -11,6 +11,8 @@ from typing import Dict, Any, List
 import json
 import logging
 import requests
+import re
+from bs4 import BeautifulSoup
 from transformers import AutoModel, AutoTokenizer, AutoFeatureExtractor
 
 from app.database import get_db
@@ -21,6 +23,66 @@ from app.core.model_analyzer import model_analyzer
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["models"])
+
+
+def extract_huggingface_tags(model_name: str) -> List[str]:
+    """Extract tags from a Hugging Face model page."""
+    try:
+        # Construct the URL
+        url = f"https://huggingface.co/{model_name}"
+        
+        # Fetch the page
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        # Parse the HTML
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Look for tags in various possible locations
+        tags = []
+        
+        # Method 1: Look for tag elements with specific classes
+        tag_elements = soup.find_all('a', class_=re.compile(r'tag|badge'))
+        for element in tag_elements:
+            tag_text = element.get_text(strip=True)
+            if tag_text and tag_text.lower() != 'demo':
+                tags.append(tag_text)
+        
+        # Method 2: Look for tags in meta tags
+        meta_tags = soup.find_all('meta', attrs={'name': 'keywords'})
+        for meta in meta_tags:
+            content = meta.get('content', '')
+            if content:
+                meta_tags_list = [tag.strip() for tag in content.split(',')]
+                tags.extend([tag for tag in meta_tags_list if tag.lower() != 'demo'])
+        
+        # Method 3: Look for tags in structured data
+        script_tags = soup.find_all('script', type='application/ld+json')
+        for script in script_tags:
+            try:
+                data = json.loads(script.string)
+                if isinstance(data, dict) and 'keywords' in data:
+                    keywords = data['keywords']
+                    if isinstance(keywords, list):
+                        tags.extend([kw for kw in keywords if kw.lower() != 'demo'])
+                    elif isinstance(keywords, str):
+                        kw_list = [kw.strip() for kw in keywords.split(',')]
+                        tags.extend([kw for kw in kw_list if kw.lower() != 'demo'])
+            except (json.JSONDecodeError, AttributeError):
+                continue
+        
+        # Remove duplicates and filter out demo tag
+        unique_tags = list(set([tag for tag in tags if tag.lower() != 'demo']))
+        
+        logger.info(f"Extracted tags for {model_name}: {unique_tags}")
+        return unique_tags
+        
+    except Exception as e:
+        logger.warning(f"Failed to extract tags for {model_name}: {e}")
+        return []
 
 
 @router.post("/upload")
@@ -364,17 +426,29 @@ async def import_huggingface_model(
                 torch.save(dummy_model.state_dict(), model_path)
                 logger.info(f"Created dummy model file for {model_name}")
         
+        # Extract tags from Hugging Face page
+        extracted_tags = extract_huggingface_tags(model_name)
+        
         # Analyze the model capabilities
         model_info = model_analyzer.analyze_model(model_path)
         
+        # Combine extracted tags with analyzed capabilities
+        all_capabilities = model_info.get("capabilities", [])
+        if extracted_tags:
+            all_capabilities.extend(extracted_tags)
+            # Remove duplicates
+            all_capabilities = list(set(all_capabilities))
+        
         logger.info(f"Successfully imported model {model_name} as {model_filename}")
+        logger.info(f"Model capabilities: {all_capabilities}")
         
         return {
             "model_name": model_filename,
             "path": model_path,
             "size": os.path.getsize(model_path),
-            "capabilities": model_info.get("capabilities", []),
+            "capabilities": all_capabilities,
             "type": model_info.get("type", "unknown"),
+            "tags": extracted_tags,
             "status": "imported"
         }
         
