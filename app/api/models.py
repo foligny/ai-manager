@@ -505,85 +505,18 @@ def _run_image_inference(data: Any) -> List[float]:
 
 
 def _run_text_inference(data: Any) -> Union[List[float], str]:
-    """Run text inference for language models."""
-    logger.info("Running text inference")
+    """Run text inference using a real small LLM."""
+    logger.info("Running text inference with real AI model")
     try:
         # Check if this is a language model input (string data)
         if isinstance(data, str) and len(data) > 0:
             logger.info(f"Processing text input: '{data}'")
             logger.info(f"Input text length: {len(data)} characters")
-            # Generate realistic text responses based on the input
-            input_text = data.lower()
-            logger.info(f"Lowercase input text: '{input_text}'")
             
-            # Generate contextual responses based on input content
-            logger.info(f"Checking text conditions...")
-            if "dialogue" in input_text and "test" in input_text:
-                logger.info("Matched: dialogue + test condition")
-                response = "I understand you're testing the dialogue functionality! As a language model, I'm designed to generate human-like text responses based on the input you provide. I can engage in conversations, answer questions, and help with various text-based tasks. This is a simulated response, but in a real implementation, I would generate more contextual and dynamic responses based on the conversation history and current input."
-            elif "dialo" in input_text and "gpt" in input_text:
-                logger.info("Matched: dialo + gpt condition")
-                response = "You're testing a DialoGPT model! These models are specifically designed for conversational AI and can generate contextually appropriate responses in dialogue settings. They're trained on large amounts of conversational data and can maintain context across multiple turns of conversation."
-            elif "model" in input_text and "work" in input_text:
-                logger.info("Matched: model + work condition")
-                response = "Language models like me work by processing text input and generating responses based on patterns learned from training data. I can understand context, generate coherent responses, and engage in meaningful conversations. The quality of responses depends on the model's training data and architecture."
-            elif "car" in input_text and ("mechanic" in input_text or "balljoint" in input_text or "sway" in input_text):
-                logger.info("Matched: car mechanics question condition")
-                response = "As a car mechanic, to remove a spinning balljoint on a sway bar, you'll need to use a balljoint separator tool or a pickle fork. First, secure the vehicle and remove the wheel. Then use the separator to pop the balljoint out of the control arm. Be careful as this can damage the boot. You may need to replace the balljoint if it's worn out."
-            elif ("hello" in input_text or "hi" in input_text) and len(input_text.split()) < 10:
-                logger.info("Matched: hello/hi short greeting condition")
-                # Only respond to hello/hi if it's a short greeting
-                response = "Hello! How can I help you today?"
-            elif "how are you" in input_text:
-                response = "I'm doing well, thank you for asking! How about you?"
-            elif "weather" in input_text:
-                response = "I can't check the weather directly, but I hope it's nice where you are!"
-            elif "help" in input_text:
-                response = "I'm here to help! What would you like to know?"
-            elif "thank" in input_text:
-                response = "You're welcome! Is there anything else I can assist you with?"
-            elif "bye" in input_text or "goodbye" in input_text:
-                response = "Goodbye! Have a great day!"
-            elif "test" in input_text or "sample" in input_text:
-                response = "This is a test response from the AI model. The system is working correctly!"
-            elif "prompt" in input_text:
-                response = "I understand you're testing the prompt functionality. This is a simulated response from the language model."
-            elif "analyze" in input_text or "analysis" in input_text:
-                response = "Based on my analysis of your text, I can provide insights and observations about the content you've shared."
-            elif "dialogue" in input_text or "conversation" in input_text:
-                response = "I'm designed for dialogue and conversation. How can I assist you with your questions or tasks?"
-            elif "ai" in input_text or "artificial intelligence" in input_text:
-                response = "I'm an AI language model designed to process and respond to text input. I can help with various tasks including answering questions, providing information, and engaging in conversation. What would you like to know about AI or how can I assist you?"
-            elif "text" in input_text or "message" in input_text:
-                response = "I've received your text input and processed it successfully. As a language model, I can understand and respond to various types of text content. Is there anything specific you'd like me to help you with or explain?"
-            elif "question" in input_text or "ask" in input_text:
-                response = "I'm ready to answer your questions! Feel free to ask me anything and I'll do my best to provide a helpful response."
-            elif "understand" in input_text or "explain" in input_text:
-                response = "I'm here to help you understand and explain things. What would you like me to clarify or explain for you?"
-            elif "generate" in input_text or "create" in input_text:
-                response = "I can help you generate and create various types of content. What would you like me to generate for you?"
-            else:
-                logger.info("No specific condition matched, using default response")
-                # More intelligent default response based on content length and type
-                if len(input_text) < 50:
-                    logger.info(f"Using short message response (length: {len(input_text)})")
-                    response = "I've received your short message. How can I help you today?"
-                elif len(input_text) < 200:
-                    logger.info(f"Using medium message response (length: {len(input_text)})")
-                    response = "Thank you for your message. I've processed your input and I'm ready to assist you. What would you like to know or discuss?"
-                else:
-                    logger.info(f"Using long message response (length: {len(input_text)})")
-                    response = "I've received your detailed message and processed it successfully. I'm a language model designed to help with various tasks. How can I assist you with your request or what would you like to discuss?"
+            # Use a real small LLM for inference
+            response = _run_real_llm_inference(data)
             
-            logger.info(f"Text inference completed: '{response}'")
-            
-            # For certain types of inputs, provide a follow-up response
-            if "dialogue" in input_text or "conversation" in input_text or "test" in input_text:
-                # Add a follow-up response to simulate conversation
-                follow_up = "\n\nWould you like me to demonstrate more capabilities or answer any specific questions about how I work?"
-                response += follow_up
-                logger.info(f"Added follow-up response: '{follow_up}'")
-            
+            logger.info(f"Real LLM inference completed: '{response}'")
             return response
         else:
             # Fallback to numerical predictions for non-string data
@@ -606,6 +539,87 @@ def _run_generic_inference(data: Any) -> List[float]:
     except Exception as e:
         logger.error(f"Generic inference error: {e}", exc_info=True)
         return [float(np.random.rand()) for _ in range(5)]
+
+
+def _run_real_llm_inference(text_input: str) -> str:
+    """Run real LLM inference using a small, basic model."""
+    logger.info("Starting real LLM inference")
+    try:
+        # Use a small, basic model for testing
+        model_name = "distilgpt2"  # Small, fast model for testing
+        
+        # Check if we have a cached model
+        if not hasattr(_run_real_llm_inference, 'model') or not hasattr(_run_real_llm_inference, 'tokenizer'):
+            logger.info(f"Loading model: {model_name}")
+            
+            # Import transformers here to avoid startup overhead
+            from transformers import AutoTokenizer, AutoModelForCausalLM
+            
+            # Load tokenizer and model
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForCausalLM.from_pretrained(model_name)
+            
+            # Set pad token if not set
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+            
+            # Cache the model and tokenizer
+            _run_real_llm_inference.model = model
+            _run_real_llm_inference.tokenizer = tokenizer
+            
+            logger.info("Model loaded successfully")
+        
+        # Get cached model and tokenizer
+        model = _run_real_llm_inference.model
+        tokenizer = _run_real_llm_inference.tokenizer
+        
+        # Prepare input
+        logger.info(f"Processing input: '{text_input}'")
+        
+        # Tokenize input with proper attention mask
+        inputs = tokenizer(
+            text_input, 
+            return_tensors="pt", 
+            max_length=512, 
+            truncation=True,
+            padding=True
+        )
+        
+        # Generate response
+        logger.info("Generating response...")
+        with torch.no_grad():
+            outputs = model.generate(
+                inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_length=inputs["input_ids"].shape[1] + 50,  # Generate up to 50 more tokens
+                num_return_sequences=1,
+                temperature=0.7,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id
+            )
+        
+        # Decode response
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # Clean up the response (remove the input part)
+        if text_input in response:
+            response = response.replace(text_input, "").strip()
+        
+        # If response is empty or too short, provide a fallback
+        if len(response.strip()) < 10:
+            response = f"I understand your input: '{text_input}'. This is a response from the AI model."
+        
+        # Ensure response is properly encoded
+        response = response.encode('utf-8', errors='ignore').decode('utf-8')
+        
+        logger.info(f"Generated response: '{response}'")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Real LLM inference error: {e}", exc_info=True)
+        # Fallback response
+        return f"I processed your input: '{text_input}'. This is a fallback response from the AI system."
 
 
 @router.post("/import-huggingface")
