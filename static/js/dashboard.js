@@ -83,8 +83,10 @@ class DashboardManager {
     async loadModels() {
         try {
             console.log('Loading models...');
-            this.models = await api.getModels();
-            console.log('Models loaded:', this.models);
+            const response = await api.getModels();
+            console.log('Models API response:', response);
+            this.models = response.models || [];
+            console.log('Models loaded:', this.models.length, 'models');
             this.renderModels();
         } catch (error) {
             console.error('Failed to load models:', error);
@@ -101,11 +103,18 @@ class DashboardManager {
                 : '';
             
             return `
-                <div class="project-item mb-2 p-2 rounded bg-secondary text-light cursor-pointer" 
-                     onclick="dashboard.selectProject(${project.id})">
+                <div class="project-item mb-2 p-2 rounded bg-secondary text-light" 
+                     data-project-id="${project.id}">
                     <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-folder me-2"></i>${project.name}</span>
-                        <span class="badge bg-primary">${project.runs_count || 0}</span>
+                        <div class="flex-grow-1 cursor-pointer" onclick="dashboard.selectProject(${project.id})">
+                            <span><i class="fas fa-folder me-2"></i>${project.name}</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary me-2">${project.runs_count || 0}</span>
+                            <button class="btn btn-sm btn-outline-light" onclick="dashboard.editProject(${project.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
                     </div>
                     ${tagsHtml}
                 </div>
@@ -115,7 +124,11 @@ class DashboardManager {
 
     renderModels() {
         const modelsList = document.getElementById('models-list');
-        if (!modelsList) return;
+        if (!modelsList) {
+            console.error('Models list element not found');
+            return;
+        }
+        console.log('Rendering', this.models.length, 'models');
 
         modelsList.innerHTML = this.models.map(model => {
             const sizeMB = (model.size / (1024 * 1024)).toFixed(1);
@@ -234,6 +247,303 @@ class DashboardManager {
         } catch (error) {
             console.error('Failed to select model:', error);
         }
+    }
+
+    async editProject(projectId) {
+        try {
+            const project = this.projects.find(p => p.id === projectId);
+            if (!project) {
+                console.error('Project not found:', projectId);
+                return;
+            }
+
+            // Populate modal with project data
+            document.getElementById('project-name').value = project.name;
+            document.getElementById('project-description').value = project.description || '';
+            document.getElementById('project-tags').value = project.tags ? project.tags.join(', ') : '';
+
+            // Store current project ID
+            this.editingProjectId = projectId;
+
+            // Populate available models dropdown
+            this.populateAvailableModelsDropdown();
+
+            // Load assigned models
+            await this.loadAssignedModels(projectId);
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('projectModal'));
+            modal.show();
+        } catch (error) {
+            console.error('Failed to edit project:', error);
+        }
+    }
+
+    populateAvailableModelsDropdown() {
+        const select = document.getElementById('available-models-select');
+        select.innerHTML = '<option value="">Select a model to add...</option>';
+        
+        this.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.name;
+            option.textContent = `${model.name} (${model.type})`;
+            select.appendChild(option);
+        });
+    }
+
+    async loadAssignedModels(projectId) {
+        try {
+            console.log('Loading assigned models for project:', projectId);
+            
+            // Get assigned models from API
+            const response = await fetch(`/projects/${projectId}/models`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (response.ok) {
+                const assignedModels = await response.json();
+                console.log('Assigned models loaded:', assignedModels);
+                
+                const container = document.getElementById('assigned-models');
+                if (assignedModels.length === 0) {
+                    container.innerHTML = '<small class="text-muted">No models assigned to this project</small>';
+                } else {
+                    container.innerHTML = assignedModels.map(model => `
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-secondary rounded">
+                            <span><i class="fas fa-robot me-2"></i>${model.model_name}</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="event.preventDefault(); dashboard.removeModelFromProject('${model.model_name}')" type="button">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                }
+                console.log('Assigned models HTML updated');
+            } else {
+                console.error('Failed to load assigned models:', response.status);
+            }
+        } catch (error) {
+            console.error('Failed to load assigned models:', error);
+        }
+    }
+
+    async addModelToProject() {
+        const select = document.getElementById('available-models-select');
+        const modelName = select.value;
+        
+        if (!modelName) {
+            alert('Please select a model to add');
+            return;
+        }
+
+        try {
+            // Find the model in our models list to get its details
+            const model = this.models.find(m => m.name === modelName);
+            if (!model) {
+                throw new Error('Model not found');
+            }
+
+            // Call API to assign model to project
+            const response = await fetch(`/projects/${this.editingProjectId}/models`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    model_name: modelName,
+                    model_path: model.path || '',
+                    model_type: model.type || 'unknown',
+                    model_capabilities: model.capabilities || []
+                })
+            });
+
+            if (response.ok) {
+                // Refresh the assigned models list
+                await this.loadAssignedModels(this.editingProjectId);
+                
+                // Reset dropdown
+                select.value = '';
+                
+                this.showSuccess(`Model ${modelName} added to project successfully!`);
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to add model to project');
+            }
+        } catch (error) {
+            console.error('Failed to add model to project:', error);
+            this.showError('Failed to add model to project: ' + error.message);
+        }
+    }
+
+    async removeModelFromProject(modelName) {
+        try {
+            console.log('Removing model:', modelName, 'from project:', this.editingProjectId);
+            
+            // Call API to remove model from project
+            const response = await fetch(`/projects/${this.editingProjectId}/models/${encodeURIComponent(modelName)}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (response.ok) {
+                console.log('Model removed successfully, refreshing list...');
+                
+                // Refresh the assigned models list
+                await this.loadAssignedModels(this.editingProjectId);
+                
+                this.showSuccess(`Model ${modelName} removed from project successfully!`);
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to remove model from project');
+            }
+        } catch (error) {
+            console.error('Failed to remove model from project:', error);
+            this.showError('Failed to remove model from project: ' + error.message);
+        }
+    }
+
+    async importFromHuggingFace() {
+        const modelName = document.getElementById('huggingface-model').value.trim();
+        
+        if (!modelName) {
+            alert('Please enter a Hugging Face model name');
+            return;
+        }
+
+        try {
+            this.showLoading('Importing model from Hugging Face...');
+            
+            // This would call the backend API to download from Hugging Face
+            const response = await fetch('/models/import-huggingface', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ 
+                    model_name: modelName,
+                    project_id: this.editingProjectId 
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.showSuccess(`Model ${modelName} imported successfully!`);
+                
+                // Add to assigned models
+                const container = document.getElementById('assigned-models');
+                const modelHtml = `
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-secondary rounded">
+                        <span><i class="fas fa-robot me-2"></i>${result.model_name}</span>
+                        <button class="btn btn-sm btn-outline-danger" onclick="event.preventDefault(); dashboard.removeModelFromProject('${result.model_name}')" type="button">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                
+                if (container.innerHTML.includes('No models assigned')) {
+                    container.innerHTML = modelHtml;
+                } else {
+                    container.innerHTML += modelHtml;
+                }
+
+                // Clear input
+                document.getElementById('huggingface-model').value = '';
+                
+                // Refresh models list
+                await this.loadModels();
+            } else {
+                throw new Error('Failed to import model');
+            }
+        } catch (error) {
+            console.error('Failed to import model:', error);
+            this.showError('Failed to import model from Hugging Face');
+        }
+    }
+
+    async saveProject() {
+        try {
+            const projectData = {
+                name: document.getElementById('project-name').value,
+                description: document.getElementById('project-description').value,
+                tags: document.getElementById('project-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+            };
+
+            // Call the backend API to update the project
+            const response = await fetch(`/projects/${this.editingProjectId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(projectData)
+            });
+
+            if (response.ok) {
+                const updatedProject = await response.json();
+                console.log('Project saved successfully:', updatedProject);
+                
+                this.showSuccess('Project saved successfully!');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('projectModal'));
+                modal.hide();
+                
+                // Refresh projects
+                await this.loadProjects();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to save project');
+            }
+        } catch (error) {
+            console.error('Failed to save project:', error);
+            this.showError('Failed to save project: ' + error.message);
+        }
+    }
+
+    showLoading(message) {
+        // Simple loading indicator
+        console.log('Loading:', message);
+    }
+
+    showSuccess(message) {
+        // Show success message as a toast notification
+        this.showToast(message, 'success');
+    }
+
+    showError(message) {
+        // Show error message as a toast notification
+        this.showToast(message, 'error');
+    }
+
+    showToast(message, type = 'info') {
+        // Create a toast notification that doesn't interfere with modals
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} border-0 position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+        bsToast.show();
+        
+        // Remove the toast element after it's hidden
+        toast.addEventListener('hidden.bs.toast', () => {
+            document.body.removeChild(toast);
+        });
     }
 
     handleMetricUpdate(data) {

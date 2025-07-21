@@ -59,6 +59,7 @@ class Project(Base):
     # Relationships
     owner = relationship("User", back_populates="projects")
     runs = relationship("Run", back_populates="project")
+    assigned_models = relationship("ProjectModel", back_populates="project")
 
 
 class Run(Base):
@@ -128,6 +129,22 @@ class Log(Base):
     
     # Relationships
     run = relationship("Run", back_populates="logs")
+
+
+class ProjectModel(Base):
+    """Association table for projects and models."""
+    __tablename__ = "project_models"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    model_name = Column(String, index=True)  # Name of the model file
+    model_path = Column(String)  # Path to the model file
+    model_type = Column(String)  # Type of model (e.g., "text", "image", "audio")
+    model_capabilities = Column(JSON, default=[])  # Model capabilities
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    project = relationship("Project", back_populates="assigned_models")
 
 
 # Database dependency

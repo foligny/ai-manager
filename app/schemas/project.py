@@ -41,4 +41,26 @@ class Project(ProjectBase):
 
 class ProjectWithRuns(Project):
     """Schema for project with runs."""
-    runs: List["RunSummary"] = [] 
+    runs: List["RunSummary"] = []
+
+
+class ModelAssignment(BaseModel):
+    """Schema for assigning a model to a project."""
+    model_name: str
+    model_path: Optional[str] = None
+    model_type: Optional[str] = "unknown"
+    model_capabilities: Optional[List[str]] = []
+
+
+class ProjectModelResponse(BaseModel):
+    """Schema for project model response."""
+    id: int
+    project_id: int
+    model_name: str
+    model_path: str
+    model_type: str
+    model_capabilities: List[str]
+    assigned_at: datetime
+    
+    class Config:
+        from_attributes = True 

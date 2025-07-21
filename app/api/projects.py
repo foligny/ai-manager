@@ -5,8 +5,8 @@ Project API routes.
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.database import get_db, User, Project
-from app.schemas.project import ProjectCreate, Project as ProjectSchema, ProjectUpdate
+from app.database import get_db, User, Project, ProjectModel
+from app.schemas.project import ProjectCreate, Project as ProjectSchema, ProjectUpdate, ModelAssignment, ProjectModelResponse
 from app.api.auth import get_current_user
 
 router = APIRouter(tags=["projects"])
@@ -140,4 +140,118 @@ def delete_project(
     db.delete(project)
     db.commit()
     
-    return {"message": "Project deleted successfully"} 
+    return {"message": "Project deleted successfully"}
+
+
+@router.get("/{project_id}/models", response_model=List[ProjectModelResponse])
+def get_project_models(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """Get models assigned to a project."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    if project.owner_id != current_user.id and not project.is_public:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    models = db.query(ProjectModel).filter(ProjectModel.project_id == project_id).all()
+    return models
+
+
+@router.post("/{project_id}/models", response_model=ProjectModelResponse)
+def assign_model_to_project(
+    project_id: int,
+    model_data: ModelAssignment,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """Assign a model to a project."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    if project.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    # Check if model is already assigned
+    existing_model = db.query(ProjectModel).filter(
+        ProjectModel.project_id == project_id,
+        ProjectModel.model_name == model_data.model_name
+    ).first()
+    
+    if existing_model:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Model is already assigned to this project"
+        )
+    
+    # Create new project-model association
+    project_model = ProjectModel(
+        project_id=project_id,
+        model_name=model_data.model_name,
+        model_path=model_data.model_path or "",
+        model_type=model_data.model_type or "unknown",
+        model_capabilities=model_data.model_capabilities or []
+    )
+    
+    db.add(project_model)
+    db.commit()
+    db.refresh(project_model)
+    
+    return project_model
+
+
+@router.delete("/{project_id}/models/{model_name}")
+def remove_model_from_project(
+    project_id: int,
+    model_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """Remove a model from a project."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    if project.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    project_model = db.query(ProjectModel).filter(
+        ProjectModel.project_id == project_id,
+        ProjectModel.model_name == model_name
+    ).first()
+    
+    if not project_model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found in project"
+        )
+    
+    db.delete(project_model)
+    db.commit()
+    
+    return {"message": "Model removed from project successfully"} 
