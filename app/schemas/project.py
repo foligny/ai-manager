@@ -50,6 +50,10 @@ class ModelAssignment(BaseModel):
     model_path: Optional[str] = None
     model_type: Optional[str] = "unknown"
     model_capabilities: Optional[List[str]] = []
+    
+    class Config:
+        from_attributes = True
+        protected_namespaces = ()
 
 
 class ProjectModelResponse(BaseModel):
@@ -63,4 +67,5 @@ class ProjectModelResponse(BaseModel):
     assigned_at: datetime
     
     class Config:
-        from_attributes = True 
+        from_attributes = True
+        protected_namespaces = () 

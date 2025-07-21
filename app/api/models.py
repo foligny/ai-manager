@@ -28,8 +28,10 @@ router = APIRouter(tags=["models"])
 def extract_huggingface_tags(model_name: str) -> List[str]:
     """Extract tags from a Hugging Face model page."""
     try:
-        # Construct the URL
+        # Construct the URL (model_name should already be cleaned)
         url = f"https://huggingface.co/{model_name}"
+        
+        logger.info(f"Extracting tags from: {url}")
         
         # Fetch the page
         headers = {
@@ -118,6 +120,73 @@ async def upload_model(
     }
 
 
+@router.delete("/{model_name}")
+async def delete_model(
+    model_name: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a model from the system."""
+    
+    try:
+        # Check if model exists in unified models directory
+        models_dir = os.path.join(os.getcwd(), "models")
+        model_path = os.path.join(models_dir, model_name)
+        
+        logger.info(f"Attempting to delete model: {model_name} at path: {model_path}")
+        
+        if not os.path.exists(model_path):
+            logger.warning(f"Model {model_name} not found at path: {model_path}")
+            raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
+        
+        # Check if file is actually a file (not a directory)
+        if not os.path.isfile(model_path):
+            logger.warning(f"Path {model_path} exists but is not a file")
+            raise HTTPException(status_code=400, detail=f"Model {model_name} is not a valid file")
+        
+        # Try to delete the model file
+        try:
+            os.remove(model_path)
+            logger.info(f"Successfully deleted model file: {model_path}")
+        except PermissionError as e:
+            logger.error(f"Permission denied when deleting {model_path}: {e}")
+            raise HTTPException(status_code=403, detail=f"Permission denied when deleting model {model_name}. The file may be in use.")
+        except OSError as e:
+            logger.error(f"OS error when deleting {model_path}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error deleting model file: {str(e)}")
+        
+        # Verify the file was actually deleted
+        if os.path.exists(model_path):
+            logger.error(f"Model file {model_path} still exists after deletion attempt")
+            raise HTTPException(status_code=500, detail=f"Failed to delete model {model_name}. File still exists after deletion attempt.")
+        
+        # Also delete any associated directories (for transformers models)
+        model_dir = model_path.replace('.pth', '').replace('.pt', '').replace('.pkl', '')
+        if os.path.exists(model_dir) and os.path.isdir(model_dir):
+            try:
+                import shutil
+                shutil.rmtree(model_dir)
+                logger.info(f"Successfully deleted model directory: {model_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to delete model directory {model_dir}: {e}")
+                # Don't fail the entire operation if directory deletion fails
+        
+        logger.info(f"Successfully deleted model {model_name}")
+        
+        return {
+            "message": f"Model {model_name} deleted successfully",
+            "deleted_model": model_name,
+            "deleted_path": model_path
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error deleting model {model_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error deleting model: {str(e)}")
+
+
 @router.post("/load/{model_name}")
 async def load_demo_model(
     model_name: str,
@@ -194,9 +263,23 @@ async def test_model(
             accuracy = np.random.uniform(0.7, 0.95)
             loss = np.random.uniform(0.1, 0.3)
         
+        # Safely get data shape
+        if hasattr(data, 'shape'):
+            data_shape = data.shape
+        elif isinstance(data, list):
+            data_shape = len(data)
+        else:
+            data_shape = str(type(data))
+        
+        # Safely get predictions
+        if hasattr(predictions, 'tolist'):
+            predictions_list = predictions[:5].tolist()
+        else:
+            predictions_list = predictions[:5] if isinstance(predictions, list) else list(predictions)[:5]
+        
         results = {
-            "data_shape": data.shape if hasattr(data, 'shape') else len(data),
-            "predictions": predictions[:5].tolist() if hasattr(predictions, 'tolist') else predictions[:5],
+            "data_shape": data_shape,
+            "predictions": predictions_list,
             "accuracy": round(accuracy, 4),
             "loss": round(loss, 4),
             "test_samples": len(predictions),
@@ -303,7 +386,7 @@ def _run_real_inference(data: Any, filename: str) -> List[float]:
     except Exception as e:
         logger.warning(f"Error in real inference: {e}")
         # Fallback to random predictions
-        return [np.random.rand() for _ in range(5)]
+        return [float(np.random.rand()) for _ in range(5)]
 
 
 def _run_audio_inference(data: Any) -> List[float]:
@@ -315,7 +398,7 @@ def _run_audio_inference(data: Any) -> List[float]:
         return [0.85, 0.92, 0.78, 0.96, 0.89]  # Confidence scores
     except Exception as e:
         logger.error(f"Audio inference error: {e}")
-        return [np.random.rand() for _ in range(5)]
+        return [float(np.random.rand()) for _ in range(5)]
 
 
 def _run_image_inference(data: Any) -> List[float]:
@@ -327,7 +410,7 @@ def _run_image_inference(data: Any) -> List[float]:
         return [0.91, 0.87, 0.94, 0.82, 0.89]  # Confidence scores
     except Exception as e:
         logger.error(f"Image inference error: {e}")
-        return [np.random.rand() for _ in range(5)]
+        return [float(np.random.rand()) for _ in range(5)]
 
 
 def _run_text_inference(data: Any) -> List[float]:
@@ -339,17 +422,17 @@ def _run_text_inference(data: Any) -> List[float]:
         return [0.76, 0.83, 0.91, 0.68, 0.85]  # Sentiment scores
     except Exception as e:
         logger.error(f"Text inference error: {e}")
-        return [np.random.rand() for _ in range(5)]
+        return [float(np.random.rand()) for _ in range(5)]
 
 
 def _run_generic_inference(data: Any) -> List[float]:
     """Run generic inference for unknown data types."""
     try:
         # Generic inference for any data type
-        return [np.random.rand() for _ in range(5)]
+        return [float(np.random.rand()) for _ in range(5)]
     except Exception as e:
         logger.error(f"Generic inference error: {e}")
-        return [np.random.rand() for _ in range(5)]
+        return [float(np.random.rand()) for _ in range(5)]
 
 
 @router.post("/import-huggingface")
@@ -365,6 +448,15 @@ async def import_huggingface_model(
     
     if not model_name:
         raise HTTPException(status_code=400, detail="Model name is required")
+    
+    # Clean up the model name - remove https://huggingface.co/ prefix if present
+    if model_name.startswith('https://huggingface.co/'):
+        model_name = model_name.replace('https://huggingface.co/', '')
+    
+    # Remove trailing slash if present
+    model_name = model_name.rstrip('/')
+    
+    logger.info(f"Cleaned model name: {model_name}")
     
     try:
         logger.info(f"Importing model {model_name} from Hugging Face")

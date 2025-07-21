@@ -115,11 +115,10 @@ class InferenceManager {
             ).join('');
             
             return `
-                <div class="model-item mb-3 p-3 rounded bg-secondary text-light cursor-pointer" 
-                     data-model-name="${model.name}"
-                     onclick="inference.selectModel('${model.name}')">
+                <div class="model-item mb-3 p-3 rounded bg-secondary text-light" 
+                     data-model-name="${model.name}">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
+                        <div class="flex-grow-1 cursor-pointer" onclick="inference.selectModel('${model.name}')">
                             <div><i class="fas fa-robot me-2"></i>${model.name}</div>
                             <small class="text-muted">${this.formatFileSize(model.size)} • ${model.type}</small>
                             <div class="mt-2">
@@ -131,7 +130,12 @@ class InferenceManager {
                                 ${formatBadges}
                             </div>
                         </div>
-                        <span class="badge bg-primary">Select</span>
+                        <div class="d-flex flex-column align-items-end">
+                            <span class="badge bg-primary mb-2">Select</span>
+                            <button class="btn btn-sm btn-danger" onclick="event.preventDefault(); inference.deleteModel('${model.name}')" type="button">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -189,6 +193,65 @@ class InferenceManager {
         this.updateUploadSections(selectedModel);
         
         this.showSuccess(`Selected model: ${modelName}`);
+    }
+
+    async deleteModel(modelName) {
+        try {
+            console.log('Deleting model:', modelName);
+            
+            // Show confirmation dialog
+            if (!confirm(`Are you sure you want to delete the model "${modelName}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            // Call API to delete model
+            const response = await fetch(`/models/${encodeURIComponent(modelName)}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            console.log('Delete response status:', response.status);
+            console.log('Delete response ok:', response.ok);
+
+            if (response.ok) {
+                const responseData = await response.json();
+                console.log('Delete response data:', responseData);
+                
+                // Verify the model was actually deleted by checking if it still exists in the list
+                const modelStillExists = this.models.some(model => model.name === modelName);
+                if (modelStillExists) {
+                    console.warn('Model still exists after delete operation');
+                    this.showError(`Failed to delete model ${modelName}. The model may still be in use or the file is locked.`);
+                    return;
+                }
+                
+                console.log('Model deleted successfully, refreshing list...');
+                
+                // Remove model from local list
+                this.models = this.models.filter(model => model.name !== modelName);
+                
+                // Refresh the models list
+                this.renderModels();
+                
+                // Clear current model if it was deleted
+                if (this.currentModel === modelName) {
+                    this.currentModel = null;
+                    // Hide upload sections
+                    this.updateUploadSections({ capabilities: [] });
+                }
+                
+                this.showSuccess(`Model ${modelName} deleted successfully!`);
+            } else {
+                const errorData = await response.json();
+                console.error('Delete failed with status:', response.status, 'Error:', errorData);
+                throw new Error(errorData.detail || `Failed to delete model (HTTP ${response.status})`);
+            }
+        } catch (error) {
+            console.error('Failed to delete model:', error);
+            this.showError('Failed to delete model: ' + error.message);
+        }
     }
 
     updateUploadSections(model) {

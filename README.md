@@ -89,6 +89,11 @@ make docker-run
 python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --ssl-keyfile certs/key.pem --ssl-certfile certs/cert.pem
 ```
 
+Stop the server
+```
+pkill -f uvicorn
+```
+
 ### Usage
 
 1. **Start the application** (choose one option):

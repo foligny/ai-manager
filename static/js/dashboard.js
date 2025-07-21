@@ -141,11 +141,16 @@ class DashboardManager {
                 : '';
             
             return `
-                <div class="model-item mb-2 p-2 rounded bg-secondary text-light cursor-pointer" 
-                     onclick="dashboard.selectModel('${model.name}')">
+                <div class="model-item mb-2 p-2 rounded bg-secondary text-light" 
+                     data-model-name="${model.name}">
                     <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-robot me-2"></i>${model.name}</span>
-                        <span class="badge bg-primary">${sizeMB}MB</span>
+                        <div class="flex-grow-1 cursor-pointer" onclick="dashboard.selectModel('${model.name}')">
+                            <span><i class="fas fa-robot me-2"></i>${model.name}</span>
+                            <span class="badge bg-primary ms-2">${sizeMB}MB</span>
+                        </div>
+                        <button class="btn btn-sm btn-danger" onclick="event.preventDefault(); dashboard.deleteModel('${model.name}')" type="button">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                     <div class="mt-1">
                         <small class="text-muted">Type: ${model.type}</small>
@@ -413,18 +418,75 @@ class DashboardManager {
         }
     }
 
+    async deleteModel(modelName) {
+        try {
+            console.log('Deleting model:', modelName);
+            
+            // Show confirmation dialog
+            if (!confirm(`Are you sure you want to delete the model "${modelName}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            // Call API to delete model
+            const response = await fetch(`/models/${encodeURIComponent(modelName)}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            console.log('Delete response status:', response.status);
+            console.log('Delete response ok:', response.ok);
+
+            if (response.ok) {
+                const responseData = await response.json();
+                console.log('Delete response data:', responseData);
+                
+                // Verify the model was actually deleted by checking if it still exists in the list
+                const modelStillExists = this.models.some(model => model.name === modelName);
+                if (modelStillExists) {
+                    console.warn('Model still exists after delete operation');
+                    this.showError(`Failed to delete model ${modelName}. The model may still be in use or the file is locked.`);
+                    return;
+                }
+                
+                console.log('Model deleted successfully, refreshing list...');
+                
+                // Remove model from local list
+                this.models = this.models.filter(model => model.name !== modelName);
+                
+                // Refresh the models list
+                this.renderModels();
+                
+                // Update overview
+                this.updateOverview();
+                
+                this.showSuccess(`Model ${modelName} deleted successfully!`);
+            } else {
+                const errorData = await response.json();
+                console.error('Delete failed with status:', response.status, 'Error:', errorData);
+                throw new Error(errorData.detail || `Failed to delete model (HTTP ${response.status})`);
+            }
+        } catch (error) {
+            console.error('Failed to delete model:', error);
+            this.showError('Failed to delete model: ' + error.message);
+        }
+    }
+
     async importFromHuggingFace() {
-        const modelName = document.getElementById('huggingface-model').value.trim();
+        let modelName = document.getElementById('huggingface-model').value.trim();
         
         if (!modelName) {
             alert('Please enter a Hugging Face model name');
             return;
         }
 
+        console.log('Importing Hugging Face model:', modelName);
+
         try {
             this.showLoading('Importing model from Hugging Face...');
             
-            // This would call the backend API to download from Hugging Face
+            // Call the backend API to download from Hugging Face
             const response = await fetch('/models/import-huggingface', {
                 method: 'POST',
                 headers: {
@@ -437,8 +499,13 @@ class DashboardManager {
                 })
             });
 
+            console.log('Import response status:', response.status);
+            console.log('Import response ok:', response.ok);
+
             if (response.ok) {
                 const result = await response.json();
+                console.log('Import response data:', result);
+                
                 this.showSuccess(`Model ${modelName} imported successfully!`);
                 
                 // Add to assigned models
@@ -469,11 +536,13 @@ class DashboardManager {
                 // Refresh models list
                 await this.loadModels();
             } else {
-                throw new Error('Failed to import model');
+                const errorData = await response.json();
+                console.error('Import failed with status:', response.status, 'Error:', errorData);
+                throw new Error(errorData.detail || `Failed to import model (HTTP ${response.status})`);
             }
         } catch (error) {
             console.error('Failed to import model:', error);
-            this.showError('Failed to import model from Hugging Face');
+            this.showError('Failed to import model from Hugging Face: ' + error.message);
         }
     }
 

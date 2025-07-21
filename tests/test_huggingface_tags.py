@@ -295,6 +295,69 @@ class TestHuggingFaceImportIntegration:
             # Verify other tags were included
             assert "speech recognition" in result["tags"]
             assert "text-to-speech" in result["tags"]
+    
+    @pytest.mark.asyncio
+    @patch('app.api.models.extract_huggingface_tags')
+    @patch('app.api.models.model_analyzer')
+    @patch('torch.save')
+    @patch('torch.nn.Linear')
+    @patch('os.path.getsize')
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    async def test_import_with_url_prefix_correction(self, mock_makedirs, mock_exists, mock_getsize, mock_linear, mock_save, mock_analyzer, mock_extract_tags):
+        """Test that URL prefix correction works correctly."""
+        from app.api.models import import_huggingface_model
+        
+        # Mock dependencies
+        mock_exists.return_value = False
+        mock_getsize.return_value = 1000
+        mock_linear.return_value.state_dict.return_value = {}
+        mock_analyzer.analyze_model.return_value = {
+            "capabilities": ["text", "transformer"],
+            "type": "text"
+        }
+        mock_extract_tags.return_value = ["speech", "audio"]
+        
+        # Test with full URL
+        model_data = {
+            "model_name": "https://huggingface.co/bert-base-uncased/",
+            "project_id": 1
+        }
+        
+        # Mock the database session and current user
+        mock_db = Mock()
+        mock_user = Mock()
+        
+        # Mock the transformers import to avoid actual downloads
+        with patch('app.api.models.AutoModel') as mock_auto_model, \
+             patch('app.api.models.AutoTokenizer') as mock_auto_tokenizer, \
+             patch('app.api.models.AutoFeatureExtractor') as mock_auto_feature_extractor:
+            
+            # Mock the transformers to raise exceptions (so it falls back to dummy model)
+            mock_auto_model.from_pretrained.side_effect = Exception("Model not found")
+            mock_auto_tokenizer.from_pretrained.side_effect = Exception("Tokenizer not found")
+            mock_auto_feature_extractor.from_pretrained.side_effect = Exception("Feature extractor not found")
+            
+            result = await import_huggingface_model(model_data, mock_user, mock_db)
+            
+            # Verify the model name was cleaned correctly
+            assert result["model_name"] == "bert-base-uncased.pth"
+            assert "bert-base-uncased" in result["path"]
+            
+            # Verify tags were extracted
+            assert result["tags"] == ["speech", "audio"]
+            
+            # Test with simple model name (should work unchanged)
+            model_data_simple = {
+                "model_name": "microsoft/DialoGPT-small",
+                "project_id": 1
+            }
+            
+            result_simple = await import_huggingface_model(model_data_simple, mock_user, mock_db)
+            
+            # Verify the model name was handled correctly
+            assert result_simple["model_name"] == "microsoft_DialoGPT-small.pth"
+            assert "microsoft_DialoGPT-small" in result_simple["path"]
 
 
 if __name__ == "__main__":
