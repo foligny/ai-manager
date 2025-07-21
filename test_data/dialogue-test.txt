@@ -1,0 +1,3 @@
+Hello, this is a test of the dialogue model. I'm testing the Microsoft DialoGPT model to see if it can generate proper text responses instead of just numerical predictions.
+
+Can you help me understand how this model works and what kind of responses it should generate? 

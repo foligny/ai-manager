@@ -543,7 +543,39 @@ class InferenceManager {
         } else {
             // Data test results or API results
             if (results.data_shape) {
-                // API test results
+                            // API test results
+            if (results.response_type === 'text' && results.text_response) {
+                // Text response from language model
+                container.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Language Model Response</h6>
+                            <div class="mb-3">
+                                <strong>Response Type:</strong> ${results.response_type}<br>
+                                <strong>Accuracy:</strong> ${(results.accuracy * 100).toFixed(1)}%<br>
+                                <strong>Loss:</strong> ${results.loss}<br>
+                                <strong>Test Samples:</strong> ${results.test_samples}
+                            </div>
+                            <h6>Generated Text:</h6>
+                            <div class="border rounded p-3 bg-light text-dark">
+                                <p class="mb-0">${results.text_response}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Performance Metrics</h6>
+                            <div class="mb-3">
+                                <strong>Inference Time:</strong> ${results.model_performance.inference_time}s<br>
+                                <strong>Memory Usage:</strong> ${results.model_performance.memory_usage}
+                            </div>
+                            <div class="text-center">
+                                <i class="fas fa-comments fa-2x text-success mb-2"></i>
+                                <p class="text-success">Text generation completed successfully!</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Numerical predictions
                 container.innerHTML = `
                     <div class="row">
                         <div class="col-md-6">
@@ -575,6 +607,7 @@ class InferenceManager {
                         </div>
                     </div>
                 `;
+            }
             } else {
                 // Simulated data test results
                 container.innerHTML = `

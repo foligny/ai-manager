@@ -2,6 +2,7 @@
 Main FastAPI application for AI Manager.
 """
 
+import logging
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +13,16 @@ import socketio
 from typing import List, Optional
 import os
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('ai_manager.log')
+    ]
+)
 
 # Import your existing modules
 from app.api import auth, projects, runs, metrics, artifacts, training, models
